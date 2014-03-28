@@ -17,7 +17,6 @@ class Motor {
     long _ticks = 0;
     int _ticks_per_phase;
     
-    void advance();
 };
 
 #endif

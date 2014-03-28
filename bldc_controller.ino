@@ -17,6 +17,8 @@ int commutation_bits[6] = {B10000100,
                            B00011000,
                            B10010000};
 
+int all_commutation_bits_off;
+
 // _on and _off determine the characteristics of the PWM (percentage and duration of pulse)
 volatile int pwm_on = 0;
 volatile int pwm_off = 0;
@@ -35,6 +37,11 @@ void initialize_timer1() {
 }
 
 void setup() {
+  for (int i=5; i>=0; i--) {
+    all_commutation_bits_off |= commutation_bits[i];
+  }
+  all_commutation_bits_off = ~all_commutation_bits_off;
+
   pinMode(diag_pin, OUTPUT);
   
   DDRD |= B11111100;  // pins 2-7 as output
@@ -43,7 +50,7 @@ void setup() {
   initialize_timer1();
     
   Serial.begin(9600);
-  Serial.setTimeout(3); // pseudo non-blocking
+  Serial.setTimeout(3);
 }
 
 ISR(TIMER1_OVF_vect)
@@ -57,32 +64,44 @@ ISR(TIMER1_OVF_vect)
   //raise_diag(); // diagnostic trigger on every timer  
   drop_diag();
 
-  motor.tick(); // motor simulator piggy-backs off this timer...
+  // motor simulator piggy-backs off this timer...real motor should be interrupt driven
+  motor.tick();
+  
+  // commutation
+  if (next_commutation) {
+    //if (!(pwm_count & 1)) raise_diag();  // diagnostic trigger on every commutation
+    next_commutation = false;
 
-  pwm_count--;
-  if (pwm_off == pwm_count) {
-    PORTD &= ~commutation_bits[commutation];
-  }
-  if (0 >= pwm_count) { // end of pulse
-    pwm_count = pwm_on + pwm_off;
-    //raise_diag();
-    if (next_commutation) {
-      next_commutation = false;
-      //raise_diag();  // diagnostic trigger on every phase
-      commutation++;
-      if (6 == commutation) {
-        //raise_diag(); // diagnostic trigger on every commutation
-        commutation = 0;
-        cycles--;
-        if (cycles == 0) {
-          cycles = motor.poles;
-          raise_diag(); // diagnostic trigger on every revolution
-        }
+    // turn everything off
+    PORTD &= all_commutation_bits_off;
+    
+    if (6 == ++commutation) {
+      //raise_diag(); // diagnostic trigger on every commutation
+      commutation = 0;
+      if (cycles-- == 0) {
+        raise_diag();
+        //if (1 == pwm_count) { raise_diag(); }; // diagnostic trigger on every revolution that coincides with a pwm cycle
+        cycles = motor.poles;
       }
     }
+    
+    if (pwm_on and pwm_count>pwm_off) {
+      PORTD |= commutation_bits[commutation];
+    } 
+
+  }
+  
+  // PWM
+   // TODO - better time distribution of on/off, ok for rpms < 2500
+  pwm_count--;
+  if (0 == pwm_count) { // start a new pulse
+    //raise_diag();
+    pwm_count = pwm_on + pwm_off;
     if (pwm_on) {
       PORTD |= commutation_bits[commutation];
-    }
+    } 
+  } else if (pwm_off && pwm_count == pwm_off) {
+    PORTD &= all_commutation_bits_off;
   } 
 
 }
@@ -95,34 +114,13 @@ void set_power(int on, int off) {
 }
 
 void loop() {
-  set_power(10, 10);
+  set_power(10, 0);
+  motor.set_rpm(5000);
   while (true) {
-    if (Serial.available() > 0) {
-      int input = Serial.parseInt();
-      input = max(0, min(10000, input));
-      motor.set_rpm(input);
-      Serial.println(motor.rpm);
-    }
+    int _on = read("Enter power_on: ");
+    int _off = read("Enter power_off: ");
+    set_power(_on, _off);      
   }
-  
-  int inc = 1;
-  for (int i=0; ; i += inc) {
-    motor.set_rpm(2000);
-    motor.set_rpm(100 * i);    //0 to 2000rpm
-    //Serial.println(motor.ticks_per_phase());
-    set_power(20-i, i);        //100% to 0 %
-
-    long _delay = 250000;
-    ///int _delay = (5000 - ((5000 - 1250) / 20) * i); // one commutation
-    //long _delay = (5000 - ((5000 - 1250) / 20) * i) * 6; // one cycle
-    //long _delay = (5000.0 - ((5000.0 - 1250) / 20) * i) * 6 * motor.poles; // one revolution
-    //long _delay = 100 * (5000 - ((5000 - 1250) / 20) * i) * 6 * motor.poles; // X * revolutions
-    //long _delay = (i + 1) * (5000.0 - ((5000.0 - 1250) / 20) * i) * 6 * motor.poles; // one revolution for unit of speed (not rpms!)
-
-    delay_(_delay);
-    if (i == 0) inc = 1; else if (i == 20) inc = -1;
-  }
-
 }
 
 __inline__ void raise_diag() {
@@ -139,5 +137,14 @@ void delay_(long _delay) {
     delayMicroseconds(__delay);
     _delay -= __delay;
   }
+}
+
+int read(char* prompt) {
+  Serial.print(prompt);
+  while (Serial.available() < 1) {};
+  int input = Serial.parseInt();
+  Serial.print(input);
+  Serial.print("\n");
+  return input;
 }
 
