@@ -14,8 +14,8 @@ class Motor {
     int poles; 
     
   private:
-    long _ticks = 0;
-    int _ticks_per_phase;
+    unsigned int _ticks = 0;
+    unsigned int _ticks_per_phase;
     
 };
 
