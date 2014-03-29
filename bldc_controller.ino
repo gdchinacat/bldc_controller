@@ -139,25 +139,19 @@ void set_power(byte power_level) {
 }
 
 void loop() {
+  int power = 0; 
+  char dir = 1;
+
   while (true) {
-    int power = 0; 
-    int dir = 1;
-
-    while (true) {
-      power += dir;
-      if ((power == 0) || (power == 16)) {
-        dir *= -1;
-      }
-      long rpm = 1000 + power * 30 ;
-      Serial.println(rpm);
-      motor.set_rpm(rpm);
-      set_power(power);
-      delay(100);
+    power += dir;
+    if ((power == 0) || (power == 16)) {
+      dir = ~dir + 1;
     }
-  }
-
-  {
-    pwm_level = read("Enter power level: ");
+    long rpm = 5000 + power * 30 ;
+    //Serial.println(rpm);
+    motor.set_rpm(rpm);
+    set_power(power);
+    delay(350);
   }
 }
 
