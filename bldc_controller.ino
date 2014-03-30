@@ -16,7 +16,7 @@ byte commutation_bits[6] = {B10000100,
                             B01001000,
                             B00011000,
                             B10010000};
-byte all_commutation_bits_off;
+#define ALL_COMMUTATION_BITS_OFF B11
 
 /*
  * The PWM bitmasks. 16 levels is 6.5% per level, which isn't
@@ -24,28 +24,28 @@ byte all_commutation_bits_off;
  * effectively switching between power levels as appropriate.
  */
  
-unsigned int pwm_bits[17] = {B00000000<<8 | B00000000,
-                             B00000000<<8 | B00000001,
-                             B00000001<<8 | B00000001,
-                             B00000100<<8 | B00100001,
-                             B00010001<<8 | B00010001,
-                             B00010010<<8 | B01001001,
-                             B00100101<<8 | B00100101,
-                             B00101010<<8 | B01010101,
-                             B01010101<<8 | B01010101,
-                             B01010101<<8 | B10101011,
-                             B01011011<<8 | B01011011,
-                             B01101101<<8 | B10110111,
-                             B01110110<<8 | B11110111,
-                             B01111011<<8 | B11011111,
-                             B01111110<<8 | B11111111,
-                             B01111111<<8 | B11111111,
-                             B11111111<<8 | B11111111};
+byte pwm_bits[17][2] = {{B00000000, B00000000},
+                        {B00000000, B00000001},
+                        {B00000001, B00000001},
+                        {B00000100, B00100001},
+                        {B00010001, B00010001},
+                        {B00010010, B01001001},
+                        {B00100101, B00100101},
+                        {B00101010, B01010101},
+                        {B01010101, B01010101},
+                        {B01010101, B10101011},
+                        {B01011011, B01011011},
+                        {B01101101, B10110111},
+                        {B01110110, B11110111},
+                        {B01111011, B11011111},
+                        {B01111110, B11111111},
+                        {B01111111, B11111111},
+                        {B11111111, B11111111}};
 
 /*
  * pwm_level - 0 is off, 17 is full on, >17 on
  */
-unsigned int pwm_level = pwm_bits[0];  // start off
+byte* pwm_level = pwm_bits[0];  // start off
 
 // simulated "motor" for testing
 static Motor motor(4, 0);
@@ -62,11 +62,6 @@ void initialize_timer1() {
 
 void setup() {
   
-  for (int i=5; i>=0; i--) {
-    all_commutation_bits_off |= commutation_bits[i];
-  }
-  all_commutation_bits_off = ~all_commutation_bits_off;
-
   pinMode(diag_pin, OUTPUT);
   
   DDRD |= B11111100;  // pins 2-7 as output
@@ -74,22 +69,22 @@ void setup() {
 
   initialize_timer1();
     
-  Serial.begin(9600);
+  //Serial.begin(9600);
   //Serial.setTimeout(3);
 }
 
 ISR(TIMER1_OVF_vect)
 {
+  drop_diag();
+  //raise_diag(); // diagnostic trigger on every timer  
   static byte commutation = 5;
   static byte _commutation;
-  static int pwm_bit = 1;
+  static byte pwm_bits = 0;
+  static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
 
-  //raise_diag(); // diagnostic trigger on every timer  
   
   TCNT1 = 0xFFFF;  //interrupt on next tick
   
-  //drop_diag();
-
   // motor simulator piggy-backs off this timer...real motor should be interrupt driven
   //raise_diag();
   motor.tick();
@@ -106,32 +101,38 @@ ISR(TIMER1_OVF_vect)
     // This shouldn't be an issue since the low and high are 1 commutation cycle
     // away, but I'm planning to support skipping commutations (hey...the real
     // world is a nasty place) and this is future proofing for that.
-    PORTD &= all_commutation_bits_off;
+    // PERF - 2 cycles for  IN and AND because I don't want to clobber the rx/tx bits
+    PORTD &= ALL_COMMUTATION_BITS_OFF;
     
     next_commutation = false;
-    ++commutation;
-    if (6 == commutation) {
+    if (commutation--==0) {
       raise_diag(); // diagnostic trigger on every commutation cycle
-      commutation = 0;
+      commutation = 5;
     }
     _commutation = commutation_bits[commutation];  // don't do this indexing every tick
     
   }
   //drop_diag();
-
   
   // PWM
   // TODO - need to turn off low before turning on high to avoid short circuit
   //raise_diag();
-  
-  pwm_bit = pwm_bit << 1;
-  if (!pwm_bit) pwm_bit = 1;
-  if (pwm_level & pwm_bit) { // use bottom four bits to index the 16 bit pwm bitmap
+  pwm_ticks++;
+  if (pwm_ticks == 16) {
+    pwm_bits = pwm_level[0];
+    pwm_ticks=0;
+  } else if (pwm_ticks == 8) {
+    pwm_bits = pwm_level[1];
+  } else {
+    pwm_bits >>= 1;
+  }
+  if (pwm_bits & 1) {
     PORTD |= _commutation;
   } else {
-    PORTD &= all_commutation_bits_off;
+    PORTD &= ALL_COMMUTATION_BITS_OFF;
   }
-  drop_diag();
+  //drop_diag();
+  //raise_diag();
 }
 
 void set_power(byte power_level) {
