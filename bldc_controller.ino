@@ -123,40 +123,51 @@ __inline__ void set_power(byte _power_level) {
 
 
 void loop() {
-  byte throbber = 0; 
+  int throbber = 0; 
   char dir = 1;
-  
-  set_power(10);
-  
+
+  desired_commutation_period = motor.commutation_period_from_rpm(5000);
+
   while (true) {
     throbber += dir;
-    if ((throbber == 0) || (throbber == 50)) {
+    if ((throbber == 0) || (throbber == 5000)) {
       dir = ~dir + 1;
     }
-    motor.loop((throbber + 5)/10); //load varies between 0 and 5
+    
+    desired_commutation_period = motor.commutation_period_from_rpm(5000 + 2500 - throbber);
 
+    int load = (throbber + 5)/1000;
+    motor.loop(load); //load varies between 0 and 5
 
     // speed control
-    
+    int delta = motor._commutation_period - desired_commutation_period;
+    if (delta > 0) {
+      set_power(power_level + 1);
+    } else if (delta < 0) {
+      set_power(power_level - 1);
+    }
 
     // Speed Control Monitor
-    Serial.print(" desired: "); Serial.print(desired_commutation_period);
-    Serial.print(" power_level:"); Serial.print(power_level); 
-    Serial.print(" period:"); Serial.print(motor._commutation_period); 
-    Serial.print(" rpm: "); Serial.print(motor.rpm);
-    Serial.println();
+    //Serial.print(" desired: "); Serial.print(desired_commutation_period);
+    //Serial.print(" period:"); Serial.print(motor._commutation_period); 
+    //Serial.print(" load:"); Serial.print(load); 
+    //Serial.print(" delta:"); Serial.print(delta); 
+    //Serial.print(" power_level:"); Serial.print(power_level); 
+    //Serial.print(" rpm: "); Serial.print(motor.rpm);
+    //Serial.println();
 
+/*
     if (Serial.available()) {
-      /*int power = Serial.parseInt();
-      Serial.print("power:"); Serial.println(power);
-      set_power(power);
-      */
+      //int power = Serial.parseInt();
+      //Serial.print("power:"); Serial.println(power);
+      //set_power(power);
+      
       
       int rpm = Serial.parseInt();
       Serial.print("rpm:"); Serial.println(rpm);
       desired_commutation_period = motor.commutation_period_from_rpm(rpm);
     }
-    
+    */
   }
 }
 

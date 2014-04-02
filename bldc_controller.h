@@ -16,6 +16,12 @@
 //LH - hard coded since 4 byte floats are dropping the precision
 #define TIMER_MICROS 16
 
+extern byte commutation;
+extern byte commutation_bits[];
+
+__inline__ void set_commutation(byte _commutation) {
+  commutation = commutation_bits[_commutation];
+}
 
 __inline__ void raise_diag() {
   PORTB |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())

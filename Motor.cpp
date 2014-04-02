@@ -2,8 +2,6 @@
 #include "bldc_controller.h"
 #include "Motor.h"
 
-extern byte commutation;
-extern byte commutation_bits[];
 extern unsigned int ticks;
 extern byte power_level;
 
@@ -24,12 +22,13 @@ void Motor::tick() {
       raise_diag();
       _commutation = 0;
     }
-    commutation = commutation_bits[_commutation];
+    set_commutation(_commutation);
   }
 }
 
 void Motor::loop(byte load) {
-  set_rpm((MAX_RPM / 16.0) * max(0, ((int)power_level - load)));
+  int delta = (MAX_RPM / 16.0) * max(0, ((int)power_level - load)) - rpm;
+  set_rpm(rpm + delta / power_level);
 }
 
 void Motor::set_rpm(unsigned int rpm) {
