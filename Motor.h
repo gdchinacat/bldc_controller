@@ -2,21 +2,22 @@
 #ifndef Motor_h
 #define Motor_h
 
+#include "Arduino.h"
+
 class Motor {
   
   public:
-    float rpm;
     Motor(int poles, int rpm);
     void tick();
-    void set_rpm(int rpm);
-    int ticks_per_phase() { return _ticks_per_phase; };
-    unsigned long ticks() { return _ticks; };
-    int poles; 
+    void loop(byte load); // load is a byte <= 16 indicating zero to full load (stalled)
+    void set_rpm(unsigned int rpm);
+    int commutation_period_from_rpm(unsigned int rpm);
     
-  private:
-    unsigned int _ticks = 0;
-    unsigned int _ticks_per_phase;
-    
+    int poles;
+    unsigned int rpm;
+    byte _commutation;         // the current commutation
+    int _commutation_period;  // in ticks
+    int ticks;
 };
 
 #endif

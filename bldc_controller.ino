@@ -1,11 +1,6 @@
+#include <math.h>
 #include "bldc_controller.h"
 #include "Motor.h"
-
-// motor->controller signal to advance to the next commutation
-volatile bool next_commutation = true;
-
-#define diag_pin_bit (1 << (diag_pin - 8))
-
 
 /*
  pins in PORTD are used [2,3], [4,5], [6,7], first is high side, second is low side
@@ -17,6 +12,10 @@ byte commutation_bits[6] = {B10000100,
                             B00011000,
                             B10010000};
 #define ALL_COMMUTATION_BITS_OFF B11
+
+byte commutation = commutation_bits[0];
+
+static int desired_commutation_period;
 
 /*
  * The PWM bitmasks. 16 levels is 6.5% per level, which isn't
@@ -42,10 +41,12 @@ byte pwm_bits[17][2] = {{B00000000, B00000000},
                         {B01111111, B11111111},
                         {B11111111, B11111111}};
 
+
 /*
  * pwm_level - 0 is off, 17 is full on, >17 on
  */
-byte* pwm_level = pwm_bits[0];  // start off
+byte power_level = 0;
+byte* pwm_level = pwm_bits[power_level];  // start off
 
 // simulated "motor" for testing
 static Motor motor(4, 0);
@@ -61,6 +62,8 @@ void initialize_timer1() {
 }
 
 void setup() {
+
+  desired_commutation_period = motor.commutation_period_from_rpm(0);
   
   pinMode(diag_pin, OUTPUT);
   
@@ -69,53 +72,31 @@ void setup() {
 
   initialize_timer1();
     
-  //Serial.begin(9600);
+  Serial.begin(9600);
   //Serial.setTimeout(3);
+  
 }
 
 ISR(TIMER1_OVF_vect)
 {
   drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
-  static byte commutation = 5;
-  static byte _commutation;
+  static byte _commutation = 0;
   static byte pwm_bits = 0;
   static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
-
   
   TCNT1 = 0xFFFF;  //interrupt on next tick
-  
-  // motor simulator piggy-backs off this timer...real motor should be interrupt driven
-  //raise_diag();
-  motor.tick();
-  //drop_diag();
-  
-  // commutation
-  //raise_diag();
-  if (next_commutation) {
-    //raise_diag();  // diagnostic trigger on every commutation
 
-    // This is done here, rather than in the PWM, since the low side transistors
-    // need to be turned off, and given time to fall (typically nanoseconds, we're
-    // working at the us scale here), before turning the high side transistors on.
-    // This shouldn't be an issue since the low and high are 1 commutation cycle
-    // away, but I'm planning to support skipping commutations (hey...the real
-    // world is a nasty place) and this is future proofing for that.
-    // PERF - 2 cycles for  IN and AND because I don't want to clobber the rx/tx bits
+  motor.tick();
+
+  // Turn off all the bits to avoid short circuit while the 
+  // high side is turning on and the low side is turning off.
+  if (_commutation != commutation) {
     PORTD &= ALL_COMMUTATION_BITS_OFF;
-    
-    next_commutation = false;
-    if (commutation--==0) {
-      raise_diag(); // diagnostic trigger on every commutation cycle
-      commutation = 5;
-    }
-    _commutation = commutation_bits[commutation];  // don't do this indexing every tick
-    
+    _commutation = commutation;
   }
-  //drop_diag();
   
   // PWM
-  // TODO - need to turn off low before turning on high to avoid short circuit
   //raise_diag();
   pwm_ticks++;
   if (pwm_ticks == 16) {
@@ -135,44 +116,51 @@ ISR(TIMER1_OVF_vect)
   //raise_diag();
 }
 
-void set_power(byte power_level) {
-  pwm_level = pwm_bits[constrain(power_level, 0, 16)];
+__inline__ void set_power(byte _power_level) {
+  power_level = constrain(_power_level, 0, 16);
+  pwm_level = pwm_bits[_power_level];
 }
+
 
 void loop() {
-  int power = 0; 
+  byte throbber = 0; 
   char dir = 1;
-
+  
+  set_power(10);
+  
   while (true) {
-    power += dir;
-    if ((power == 0) || (power == 16)) {
+    throbber += dir;
+    if ((throbber == 0) || (throbber == 50)) {
       dir = ~dir + 1;
     }
-    long rpm = 5000 + power * 30 ;
-    //Serial.println(rpm);
-    motor.set_rpm(rpm);
-    set_power(power);
-    delay(350);
+    motor.loop((throbber + 5)/10); //load varies between 0 and 5
+
+
+    // speed control
+    
+
+    // Speed Control Monitor
+    Serial.print(" desired: "); Serial.print(desired_commutation_period);
+    Serial.print(" power_level:"); Serial.print(power_level); 
+    Serial.print(" period:"); Serial.print(motor._commutation_period); 
+    Serial.print(" rpm: "); Serial.print(motor.rpm);
+    Serial.println();
+
+    if (Serial.available()) {
+      /*int power = Serial.parseInt();
+      Serial.print("power:"); Serial.println(power);
+      set_power(power);
+      */
+      
+      int rpm = Serial.parseInt();
+      Serial.print("rpm:"); Serial.println(rpm);
+      desired_commutation_period = motor.commutation_period_from_rpm(rpm);
+    }
+    
   }
 }
 
-__inline__ void raise_diag() {
-  PORTB |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
-}
-
-__inline__ void drop_diag() {
-  PORTB &= ~diag_pin_bit;
-}
-
-void delay_(long _delay) {
-  while (_delay > 0) {
-    int __delay = min(16383, _delay);
-    delayMicroseconds(__delay);
-    _delay -= __delay;
-  }
-}
-
-int read(char* prompt) {
+int read(const char* prompt) {
   Serial.print(prompt);
   while (Serial.available() < 1) {};
   int input = Serial.parseInt();

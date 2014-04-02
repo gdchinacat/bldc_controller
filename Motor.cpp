@@ -2,32 +2,49 @@
 #include "bldc_controller.h"
 #include "Motor.h"
 
+extern byte commutation;
+extern byte commutation_bits[];
+extern unsigned int ticks;
+extern byte power_level;
+
 Motor::Motor(int poles, int rpm) {
   this->poles = poles;
+  _commutation = 5;
   set_rpm(rpm);
-  }
+}
 
 void Motor::tick() {
-  // runs as interrupt, be quick
-  if (--_ticks <= 0) {
-    next_commutation = true;
-    _ticks = _ticks_per_phase; 
+  
+  if (--ticks == 0) {
+    //raise_diag();
+    
+    ticks = _commutation_period;
+
+    if (++_commutation==6) {
+      raise_diag();
+      _commutation = 0;
+    }
+    commutation = commutation_bits[_commutation];
   }
-  // TODO - inspect the power and rotation and .... I think I'll play with a real motor first
 }
 
-void Motor::set_rpm(int rpm) {
-  if (rpm <= 0) {
-    this->rpm = 0;
-    _ticks = _ticks_per_phase = ~0;  // run as slowly as possible without overflow or if for special non-runtime state
-  } else {
-    this->rpm = rpm;
-    float commutations_freq = (((float)rpm) * poles * 6) / 60;
-    float commutation_period = (1000000.0 / commutations_freq);
-    _ticks_per_phase = commutation_period / TIMER_MICROS;
-    if (_ticks_per_phase < _ticks) {
-      _ticks = _ticks_per_phase;
-    }
-  }
- 
+void Motor::loop(byte load) {
+  set_rpm((MAX_RPM / 16.0) * max(0, ((int)power_level - load)));
 }
+
+void Motor::set_rpm(unsigned int rpm) {
+  this->rpm = rpm;
+  _commutation_period = commutation_period_from_rpm(rpm);
+}
+
+int Motor::commutation_period_from_rpm(unsigned int rpm) { // in millis
+  if (rpm == 0) {
+    return -1;
+  } else {
+    rpm = min(MAX_RPM, rpm);
+    float freq = (((float)rpm) * poles * 6) / 60;
+    float period = (1000000.0 / freq);
+    return (int)(period / TIMER_MICROS);
+  }
+}
+
