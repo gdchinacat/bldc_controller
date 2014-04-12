@@ -4,11 +4,13 @@
 
 #include "Arduino.h"
 
-// diag_pin is the pin used for diagnostic signals
-#define diag_pin 13
-#define diag_pin_bit (1 << (diag_pin - 8))
-
 #define MAX_RPM 10000
+
+// the pin the potentiometer is connected to
+#define pot_pin A5
+// diag_pin is the pin used for diagnostic signals
+#define diag_pin 4
+#define diag_pin_bit (1 << diag_pin)
 
 // Use the 256x prescaler for a 62.5khz frequency
 #define PRESCALE 1<<CS12;
@@ -18,17 +20,22 @@
 
 extern byte commutation;
 extern byte commutation_bits[];
+extern int commutation_to_skip;
 
 __inline__ void set_commutation(byte _commutation) {
-  commutation = commutation_bits[_commutation];
+  if (commutation_to_skip == _commutation) {
+    commutation = 0;
+  } else {
+    commutation = commutation_bits[_commutation];
+  }
 }
 
 __inline__ void raise_diag() {
-  PORTB |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
+  PORTD |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
 }
 
 __inline__ void drop_diag() {
-  PORTB &= ~diag_pin_bit;
+  PORTD &= ~diag_pin_bit;
 }
 
 #endif

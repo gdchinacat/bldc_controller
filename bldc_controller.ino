@@ -3,15 +3,16 @@
 #include "Motor.h"
 
 /*
- pins in PORTD are used [2,3], [4,5], [6,7], first is high side, second is low side
+ pins in PORTD are used [8,9], [10,11], [12,13], first is high side, second is low side
  */
-byte commutation_bits[6] = {B10000100,
-                            B00100100,
-                            B01100000,
-                            B01001000,
-                            B00011000,
-                            B10010000};
-#define ALL_COMMUTATION_BITS_OFF B11
+byte commutation_bits[6] = {B100001,
+                            B001001,
+                            B011000,
+                            B010010,
+                            B000110,
+                            B100100};
+#define ALL_COMMUTATION_BITS_OFF B11000000
+
 
 byte commutation = commutation_bits[0];
 
@@ -66,14 +67,15 @@ void setup() {
   desired_commutation_period = motor.commutation_period_from_rpm(0);
   
   pinMode(diag_pin, OUTPUT);
+  pinMode(pot_pin, INPUT);
   
-  DDRD |= B11111100;  // pins 2-7 as output
-  PORTD &= B00000011; // pins 2-7 LOW
+  DDRB |= B111111;  // pins 8-13 as output
+  PORTB &= B11000000; // pins 8-13 LOW
 
   initialize_timer1();
     
   Serial.begin(9600);
-  //Serial.setTimeout(3);
+  Serial.setTimeout(5);
   
 }
 
@@ -92,8 +94,9 @@ ISR(TIMER1_OVF_vect)
   // Turn off all the bits to avoid short circuit while the 
   // high side is turning on and the low side is turning off.
   if (_commutation != commutation) {
-    PORTD &= ALL_COMMUTATION_BITS_OFF;
+    PORTB &= ALL_COMMUTATION_BITS_OFF;
     _commutation = commutation;
+    return;
   }
   
   // PWM
@@ -108,9 +111,9 @@ ISR(TIMER1_OVF_vect)
     pwm_bits >>= 1;
   }
   if (pwm_bits & 1) {
-    PORTD |= _commutation;
+    PORTB |= _commutation;
   } else {
-    PORTD &= ALL_COMMUTATION_BITS_OFF;
+    PORTB &= ALL_COMMUTATION_BITS_OFF;
   }
   //drop_diag();
   //raise_diag();
@@ -123,17 +126,42 @@ __inline__ void set_power(byte _power_level) {
 
 
 void loop() {
-  int throbber = 0; 
-  char dir = 1;
+  
+  //desired_commutation_period = motor.commutation_period_from_rpm(0);
+  //motor.set_rpm(3500);
+  set_power(16);
 
-  desired_commutation_period = motor.commutation_period_from_rpm(5000);
-
-  while (true) {
-    throbber += dir;
-    if ((throbber == 0) || (throbber == 5000)) {
-      dir = ~dir + 1;
-    }
+  //set_power(14);
+  int input = 1;
+  while (input) {
     
+    int rpm_input = map(analogRead(pot_pin), 0, 1024, 150, 3000);
+    int delta = rpm_input - motor.rpm;
+    delta = min(max(delta, -1), 1);
+    motor.set_rpm(motor.rpm  + delta);
+    
+    if (Serial.available()) {
+      input = Serial.parseInt();
+      Serial.println(input);
+        //motor.set_rpm(input);
+        set_power(input);
+        //commutation_to_skip = input - 1;
+    }
+  }
+  set_power(0);
+  motor.set_rpm(0);
+  delay(100); 
+
+/*
+    if (Serial.available()) {
+      int c = Serial.parseInt();
+      set_commutation(c);
+      Serial.println(c);
+      Serial.print("enter commutation: "); 
+    }
+*/
+
+/*
     desired_commutation_period = motor.commutation_period_from_rpm(5000 + 2500 - throbber);
 
     int load = (throbber + 5)/1000;
@@ -146,6 +174,7 @@ void loop() {
     } else if (delta < 0) {
       set_power(power_level - 1);
     }
+*/
 
     // Speed Control Monitor
     //Serial.print(" desired: "); Serial.print(desired_commutation_period);
@@ -167,8 +196,8 @@ void loop() {
       Serial.print("rpm:"); Serial.println(rpm);
       desired_commutation_period = motor.commutation_period_from_rpm(rpm);
     }
-    */
-  }
+*/
+ 
 }
 
 int read(const char* prompt) {
