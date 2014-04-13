@@ -23,11 +23,7 @@ extern byte commutation_bits[];
 extern int commutation_to_skip;
 
 __inline__ void set_commutation(byte _commutation) {
-  if (commutation_to_skip == _commutation) {
-    commutation = 0;
-  } else {
-    commutation = commutation_bits[_commutation];
-  }
+  commutation = commutation_bits[_commutation];
 }
 
 __inline__ void raise_diag() {

@@ -81,7 +81,7 @@ void setup() {
 
 ISR(TIMER1_OVF_vect)
 {
-  drop_diag();
+  //drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
   static byte _commutation = 0;
   static byte pwm_bits = 0;
@@ -128,21 +128,29 @@ __inline__ void set_power(byte _power_level) {
 void loop() {
   
   //desired_commutation_period = motor.commutation_period_from_rpm(0);
-  //motor.set_rpm(3500);
+
   set_power(16);
 
-  //set_power(14);
+/*
+  for (int rpm = 0; rpm < 1300; rpm+=30) {
+    motor.set_rpm(rpm);
+    delay(90);
+  }
+*/
+  
   int input = 1;
+  
   while (input) {
     
     int rpm_input = map(analogRead(pot_pin), 0, 1024, 150, 3000);
     int delta = rpm_input - motor.rpm;
     delta = min(max(delta, -1), 1);
     motor.set_rpm(motor.rpm  + delta);
-    
+
     if (Serial.available()) {
       input = Serial.parseInt();
-      Serial.println(input);
+      Serial.print("power:"); Serial.print(input);
+      Serial.print(" rpm:"); Serial.println(motor.rpm);
         //motor.set_rpm(input);
         set_power(input);
         //commutation_to_skip = input - 1;
@@ -151,6 +159,8 @@ void loop() {
   set_power(0);
   motor.set_rpm(0);
   delay(100); 
+  motor.set_rpm(150);
+  set_power(16);
 
 /*
     if (Serial.available()) {

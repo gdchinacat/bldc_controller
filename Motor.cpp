@@ -13,6 +13,8 @@ Motor::Motor(int poles, int rpm) {
 
 void Motor::tick() {
   
+  return;
+  
   if (--ticks == 0) {
     //raise_diag();
     
@@ -21,6 +23,8 @@ void Motor::tick() {
     if (++_commutation==6) {
       raise_diag();
       _commutation = 0;
+    } else {
+      drop_diag();
     }
     set_commutation(_commutation);
   }
