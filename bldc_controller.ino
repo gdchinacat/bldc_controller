@@ -50,7 +50,7 @@ byte power_level = 0;
 byte* pwm_level = pwm_bits[power_level];  // start off
 
 // simulated "motor" for testing
-static Motor motor(4, 0);
+Motor motor(4, 0);
 
 void initialize_timer1() {
   noInterrupts();           // disable all interrupts
@@ -138,21 +138,17 @@ __inline__ void set_power(byte _power_level) {
 void loop() {
   
   //desired_commutation_period = motor.commutation_period_from_rpm(0);
-
   set_power(16);
-  for (int rpm = 100; rpm < 500; rpm+=3) {
-    Serial.println(rpm);
-    if (motor.set_rpm(rpm)) {
-      break;
-    }
-    delay(90);
+  for (int rpm = 100; !motor.sensing; rpm+=30) { 
+    motor.set_rpm(rpm);
+    delay(20);
   }
   
   //set_power(11);
   int input = 1;
   
   while (input) {
-    Serial.println(motor._commutation_period * TIMER_MICROS);
+    Serial.println(motor._commutation_period);
     /*
     int rpm_input = map(analogRead(pot_pin), 0, 1024, 150, 3000);
     int delta = rpm_input - motor.rpm;
@@ -168,9 +164,7 @@ void loop() {
         //commutation_to_skip = input - 1;
     }
   }
-  motor.disengage();
-  set_power(16);
-  commutation = commutation_bits[0];
+  set_power(0);
   delay(1000); 
 
 /*

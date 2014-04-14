@@ -9,12 +9,9 @@ class Motor {
   public:
     Motor(int poles, int rpm);
     void tick();
-    boolean set_rpm(unsigned int rpm);
+    void set_rpm(unsigned int rpm);
     int commutation_period_from_rpm(unsigned int rpm);
-    void commutate(); // a commutation occured
-    void _commutate(); //interrupt driven commutation
-    void disengage();
-    void engage();
+    void commutation_intr();
     
     int poles;
     unsigned int rpm;
