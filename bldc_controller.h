@@ -8,6 +8,10 @@
 
 // the pin the potentiometer is connected to
 #define pot_pin A5
+
+// the pin to use for commutation interrupts
+#define commutation_interrupt 0
+
 // diag_pin is the pin used for diagnostic signals
 #define diag_pin 4
 #define diag_pin_bit (1 << diag_pin)
@@ -22,9 +26,7 @@ extern byte commutation;
 extern byte commutation_bits[];
 extern int commutation_to_skip;
 
-__inline__ void set_commutation(byte _commutation) {
-  commutation = commutation_bits[_commutation];
-}
+extern void next_commutation(void);
 
 __inline__ void raise_diag() {
   PORTD |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())

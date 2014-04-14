@@ -2,42 +2,29 @@
 #include "bldc_controller.h"
 #include "Motor.h"
 
-extern unsigned int ticks;
 extern byte power_level;
 
 Motor::Motor(int poles, int rpm) {
   this->poles = poles;
   _commutation = 5;
+  sensing = false;
   set_rpm(rpm);
 }
 
 void Motor::tick() {
-  
-  return;
-  
-  if (--ticks == 0) {
+  ticks++;
+  if (!sensing && ticks > _commutation_period) {
     //raise_diag();
-    
-    ticks = _commutation_period;
-
-    if (++_commutation==6) {
-      raise_diag();
-      _commutation = 0;
-    } else {
-      drop_diag();
-    }
-    set_commutation(_commutation);
+    commutate();
   }
 }
 
-void Motor::loop(byte load) {
-  int delta = (MAX_RPM / 16.0) * max(0, ((int)power_level - load)) - rpm;
-  set_rpm(rpm + delta / power_level);
-}
-
-void Motor::set_rpm(unsigned int rpm) {
-  this->rpm = rpm;
-  _commutation_period = commutation_period_from_rpm(rpm);
+boolean Motor::set_rpm(unsigned int rpm) {
+  if (!sensing) {
+    this->rpm = rpm;
+    _commutation_period = commutation_period_from_rpm(rpm);
+  }
+  return sensing;
 }
 
 int Motor::commutation_period_from_rpm(unsigned int rpm) { // in millis
@@ -51,3 +38,31 @@ int Motor::commutation_period_from_rpm(unsigned int rpm) { // in millis
   }
 }
 
+void Motor::commutate() {
+  next_commutation();
+  ticks = 0;
+  if (!sensing && _commutation_period < 600) {
+    engage();
+  }
+}
+
+extern Motor* motor;
+void __commutate() {
+  motor->commutate();
+}
+
+void Motor::_commutate() {
+  _commutation_period = ticks;
+  commutate();
+}
+
+void Motor::engage() {
+  sensing = true;
+  ticks=0;
+  attachInterrupt(commutation_interrupt, next_commutation, CHANGE);
+}
+
+void Motor::disengage() {
+  detachInterrupt(commutation_interrupt);
+  sensing = false;
+}
