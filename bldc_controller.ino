@@ -83,7 +83,7 @@ static byte _commutation = 5;
 void next_commutation() {
   //raise_diag();
   if (++_commutation==6) {
-    //raise_diag();
+    raise_diag();
     _commutation = 0;
   }
   commutation = commutation_bits[_commutation];
@@ -91,7 +91,7 @@ void next_commutation() {
 
 ISR(TIMER1_OVF_vect)
 {
-  //drop_diag();
+  drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
   static byte _commutation = 0;
   static byte pwm_bits = 0;
@@ -144,14 +144,9 @@ void loop() {
   
   // start
   int rpm = 0;
-  for (rpm = 40; rpm < 1500; rpm+=5) { 
-    noInterrupts();
-    int x = motor._commutation_period;
-    interrupts();
-    Serial.print(" interpolation_ticks: "); Serial.print(motor.interpolation_ticks);
-    Serial.print(" _commutation_period: " ); Serial.println(x);
+  for (rpm = 40; !motor.sensing; rpm+=5) { 
     motor.set_rpm(rpm);
-    delay(30);
+    delay(35);
   }
   
   Serial.print("startup completed"); 
@@ -161,29 +156,26 @@ void loop() {
   }
   Serial.println();
 
-  delay(5000);
-  motor.sensing = true;
-  
-  while (true) {
-    
-    noInterrupts();
-    int x = motor._commutation_period;
-    interrupts();
-    Serial.print(" _commutation_period: " ); Serial.println(x);
-    
-    delay(10);
-}
- 
   int input = 1;
   while (input) {
+    unsigned int _rpm;
+    
+/*
+    noInterrupts();
+    _rpm = motor._rpm;
+    interrupts();    
+    Serial.print(" _rpm: " ); Serial.println(_rpm);
+*/
+
     if (Serial.available()) {
       input = Serial.parseInt();
-      //Serial.print("power:"); Serial.print(input);
+      //motor.set_rpm(input);
+      set_power(input);
+        //commutation_to_skip = input - 1;
+      Serial.print("power:"); Serial.print(input);
       //Serial.print(" rpm:"); Serial.print(motor.rpm);
       Serial.println();
-        //motor.set_rpm(input);
-        set_power(input);
-        //commutation_to_skip = input - 1;
+
     }
   }
 

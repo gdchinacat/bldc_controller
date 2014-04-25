@@ -18,53 +18,49 @@ void Motor::reset() {
   set_rpm(0);
   _commutation = 5;
   sensing = false;
+  interrupt_in_phase = false;
 }
 
 void Motor::tick() {
-  drop_diag();
+  //drop_diag();
   ticks++;
-  interpolation_ticks++;
-  //if (!sensing) {
+  if (!sensing) {
     if (ticks > _commutation_period) {
       //raise_diag();
       if (_commutation_period > 0) {
-        next_commutation();
-        if(_commutation_period < 150) {  // TODO - detect interrupts
-          //sensing = true;
+        if (_commutation_period < 140) {
+          sensing = true;
+          if (!interrupt_in_phase) {
+            next_commutation();
+          }
+        } else {
+          next_commutation();
+          interrupt_in_phase = false;
         }
+        ticks = 0;
       }
-      ticks = 0;
     }
-  //} else {
-    if (_commutation_period > 200) {
+  } else {
+    if (_commutation_period > 20000) {
       sensing = false;
     }
   }
 }
 
 void Motor::commutation_intr() {
-  raise_diag();
+  //raise_diag();
+  interrupt_in_phase = true;
   if (sensing) {
-    // full sensing
-    //next_commutation();
-    //_commutation_period = ticks;         // full sensing mode  
-    
-    // interpolation - record the period and trigger next_commutation on next tick
-    if (interpolation_ticks != -1) {
-      ticks = _commutation_period = interpolation_ticks / 3;
-      interpolation_ticks = -1; //skip next one, it's dirty from this...
-    } else {
-        interpolation_ticks = 0;
-    }
-  } else {
-    interpolation_ticks = 0;
+    next_commutation();
+    _rpm = ticks; //hack hack hack
+    ticks = 0;
   }
 }
 
 int Motor::rpm() {
   if (sensing) {
     //calculate it
-    return (int)(60 * 1000000.0 / (_commutation_period * TIMER_MICROS * poles * 6));
+    return (int)(60 * 1000000.0 / (_rpm * TIMER_MICROS * poles * 6));
   } else {
     return _rpm;
   }
