@@ -25,13 +25,12 @@ void Motor::tick() {
   ticks++;
   if (!sensing) {
     if (ticks > _commutation_period) {
-      //raise_diag();
+      next_commutation();
+      ticks = 0;
       if (_commutation_period > 0) {
         if (_commutation_period < 450) {
           sensing = true;
         }
-        next_commutation();
-        ticks = 0;
       }
     }
   } 
