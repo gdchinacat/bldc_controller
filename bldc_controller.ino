@@ -133,6 +133,13 @@ __inline__ void set_power(byte _power_level) {
   pwm_level = pwm_bits[power_level];
 }
 
+void print_rpm() {
+    unsigned int _rpm;
+    noInterrupts();
+    _rpm = motor._rpm;
+    interrupts();    
+    Serial.print(" _rpm: " ); Serial.println(_rpm);
+}
 
 void loop() {
   
@@ -144,7 +151,8 @@ void loop() {
   
   // start
   int rpm = 0;
-  for (rpm = 40; !motor.sensing; rpm+=5) { 
+  for (rpm = 40; !motor.sensing; rpm+=6) { 
+    print_rpm();
     motor.set_rpm(rpm);
     delay(35);
   }
@@ -158,14 +166,8 @@ void loop() {
 
   int input = 1;
   while (input) {
-    unsigned int _rpm;
     
-/*
-    noInterrupts();
-    _rpm = motor._rpm;
-    interrupts();    
-    Serial.print(" _rpm: " ); Serial.println(_rpm);
-*/
+    print_rpm();
 
     if (Serial.available()) {
       input = Serial.parseInt();

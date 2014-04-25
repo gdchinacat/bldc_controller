@@ -14,7 +14,6 @@ class Motor {
     void commutation_intr();
     int rpm();
     void reset();
-    boolean interrupt_in_phase;
     
     int poles;
     unsigned int _rpm;
