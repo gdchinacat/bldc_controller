@@ -18,7 +18,6 @@ void Motor::reset() {
   set_rpm(0);
   _commutation = 5;
   sensing = false;
-  intr_count = 0;
 }
 
 void Motor::tick() {
@@ -40,7 +39,6 @@ void Motor::tick() {
 
 void Motor::commutation_intr() {
   //raise_diag();
-  intr_count++;
   if (sensing) {
     next_commutation();
     _commutation_period = ticks;
@@ -51,7 +49,11 @@ void Motor::commutation_intr() {
 int Motor::rpm() {
   if (sensing) {
     //calculate it
-    return (int)(60 * 1000000.0 / (_rpm * TIMER_MICROS * poles * 6));
+    int __commutation_period;
+    noInterrupts();
+    __commutation_period = _commutation_period;
+    interrupts();
+    return (int)(60 * 1000000.0 / (__commutation_period) / ( TIMER_MICROS * poles * 6));
   } 
   else {
     return _rpm;

@@ -21,7 +21,6 @@ class Motor {
     int _commutation_period;  // in ticks
     int ticks;
     boolean sensing;
-    unsigned int intr_count;
 };
 
 #endif

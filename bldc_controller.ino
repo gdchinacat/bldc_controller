@@ -73,7 +73,7 @@ void setup() {
 
   initialize_timer1();
     
-  Serial.begin(9600);
+  //Serial.begin(9600);
   Serial.setTimeout(5);
   
 }
@@ -82,19 +82,23 @@ static byte _commutation = 5;
 
 void next_commutation() {
   //raise_diag();
+
+  // Turn off all the bits to avoid short circuit while the 
+  // high side is turning on and the low side is turning off.
+  PORTB &= ALL_COMMUTATION_BITS_OFF;
+
   if (++_commutation==6) {
     raise_diag();
     _commutation = 0;
   }
-  PORTB &= ALL_COMMUTATION_BITS_OFF;
   commutation = commutation_bits[_commutation];
 }
+
 
 ISR(TIMER1_OVF_vect)
 {
   drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
-  static byte _commutation = 0;
   static byte pwm_bits = 0;
   static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
   
@@ -102,13 +106,6 @@ ISR(TIMER1_OVF_vect)
 
   motor.tick();
 
-  // Turn off all the bits to avoid short circuit while the 
-  // high side is turning on and the low side is turning off.
-  if (_commutation != commutation) {
-    PORTB &= ALL_COMMUTATION_BITS_OFF;
-    _commutation = commutation;
-  }
-  
   // PWM
   //raise_diag();
   pwm_ticks++;
@@ -121,7 +118,7 @@ ISR(TIMER1_OVF_vect)
     pwm_bits >>= 1;
   }
   if (pwm_bits & 1) {
-    PORTB |= _commutation;
+    PORTB |= commutation;
   } else {
     PORTB &= ALL_COMMUTATION_BITS_OFF;
   }
@@ -132,14 +129,6 @@ ISR(TIMER1_OVF_vect)
 __inline__ void set_power(byte _power_level) {
   power_level = constrain(_power_level, 0, 16);
   pwm_level = pwm_bits[power_level];
-}
-
-void print_rpm() {
-    unsigned int _rpm;
-    noInterrupts();
-    _rpm = motor._commutation_period;
-    interrupts();    
-    Serial.print(" _rpm: " ); Serial.println(_rpm);
 }
 
 void loop() {
@@ -153,13 +142,13 @@ void loop() {
   // start
   int rpm = 0;
   for (rpm = 40; !motor.sensing; rpm+=6) { 
-    print_rpm();
     motor.set_rpm(rpm);
+    Serial.print(" rpm: " ); Serial.println(motor.rpm());
     delay(35);
   }
   
   Serial.print("startup completed"); 
-  Serial.print(" rpm: "); Serial.print(rpm);
+  Serial.print(" rpm: " ); Serial.print(motor.rpm());
   if (motor.sensing) {
     Serial.print(" sensing");
   }
@@ -168,7 +157,7 @@ void loop() {
   int input = 1;
   while (input) {
     
-    print_rpm();
+    Serial.print(" rpm: " ); Serial.println(motor.rpm());
 
     if (Serial.available()) {
       input = Serial.parseInt();
@@ -191,6 +180,7 @@ void loop() {
     }
 */
 
+/*
     while (motor.sensing) {
       
       int delta = 0;
@@ -210,7 +200,7 @@ void loop() {
         }
       }
 
-*/
+
       // Speed Control Monitor
       Serial.print(" rpm_input: "); Serial.print(rpm_input);
       Serial.print(" desired: "); Serial.print(desired_commutation_period);
@@ -222,7 +212,7 @@ void loop() {
       Serial.println();
       
 
-/*
+
     if (Serial.available()) {
       //int power = Serial.parseInt();
       //Serial.print("power:"); Serial.println(power);
@@ -233,13 +223,18 @@ void loop() {
       Serial.print("rpm:"); Serial.println(rpm);
       desired_commutation_period = motor.commutation_period_from_rpm(rpm);
     }
-*/
+
  
-    }
+    }*/
     
     Serial.println("shutdown");
     set_power(16);
-    motor.set_rpm(0);
+    noInterrupts();
+    _commutation+=3;
+    if (_commutation>5) {
+      _commutation -= 6;
+    }
+    interrupts();
     delay(2000);
     set_power(0);
 }
