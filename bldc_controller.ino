@@ -86,6 +86,7 @@ void next_commutation() {
     raise_diag();
     _commutation = 0;
   }
+  PORTB &= ALL_COMMUTATION_BITS_OFF;
   commutation = commutation_bits[_commutation];
 }
 
@@ -136,7 +137,7 @@ __inline__ void set_power(byte _power_level) {
 void print_rpm() {
     unsigned int _rpm;
     noInterrupts();
-    _rpm = motor._rpm;
+    _rpm = motor._commutation_period;
     interrupts();    
     Serial.print(" _rpm: " ); Serial.println(_rpm);
 }
