@@ -74,7 +74,7 @@ void setup() {
   initialize_timer1();
     
   //Serial.begin(9600);
-  Serial.setTimeout(5);
+  //Serial.setTimeout(5);
   
 }
 
@@ -140,19 +140,11 @@ void loop() {
   //alignment
   set_power(16);
   motor.start();
-  
-  Serial.print("startup completed"); 
-  Serial.print(" rpm: " ); Serial.print(motor.rpm());
-  if (motor.sensing) {
-    Serial.print(" sensing");
-  }
-  Serial.println();
-  
   while (motor.sensing) {
       
     // speed control
     int delta = 0;
-    int rpm_input = map(analogRead(pot_pin), 0, 1024, 0, 3000);
+    int rpm_input = map(analogRead(pot_pin), 0, 1024, 800, 3500);
     desired_commutation_period = motor.commutation_period_from_rpm(rpm_input);
 
     delta = motor._commutation_period - desired_commutation_period;
@@ -162,31 +154,17 @@ void loop() {
       set_power(power_level - 1);
     }
 
-
-      // Speed Control Monitor
-      //Serial.print(" rpm_input: "); Serial.print(rpm_input);
-      //Serial.print(" desired: "); Serial.print(desired_commutation_period);
-      //Serial.print(" period:"); Serial.print(motor._commutation_period); 
-      //Serial.print(" delta:"); Serial.print(delta); 
-      //Serial.print(" power_level:"); Serial.print(power_level);
-      //Serial.print(" rpm:"); Serial.print(motor.rpm());
-      //if (motor.sensing) { Serial.print(" sensing"); }
-      //Serial.println();
+    // Speed Control Monitor
+    //Serial.print(" rpm_input: "); Serial.print(rpm_input);
+    //Serial.print(" desired: "); Serial.print(desired_commutation_period);
+    //Serial.print(" period:"); Serial.print(motor._commutation_period); 
+    //Serial.print(" delta:"); Serial.print(delta); 
+    //Serial.print(" power_level:"); Serial.print(power_level);
+    //Serial.print(" rpm:"); Serial.print(motor.rpm());
+    //if (motor.sensing) { Serial.print(" sensing"); }
+    //Serial.println();
   }
     
-  Serial.println("shutdown");
-  set_power(16);
-  motor.reset();
-  delay(2000);
-  set_power(0);
 }
 
-int read(const char* prompt) {
-  Serial.print(prompt);
-  while (Serial.available() < 1) {};
-  int input = Serial.parseInt();
-  Serial.print(input);
-  Serial.print("\n");
-  return input;
-}
 
