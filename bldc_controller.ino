@@ -73,7 +73,7 @@ void setup() {
 
   initialize_timer1();
     
-  //Serial.begin(9600);
+  Serial.begin(9600);
   Serial.setTimeout(5);
   
 }
@@ -229,12 +229,7 @@ void loop() {
     
     Serial.println("shutdown");
     set_power(16);
-    noInterrupts();
-    _commutation+=3;
-    if (_commutation>5) {
-      _commutation -= 6;
-    }
-    interrupts();
+    motor.reset();
     delay(2000);
     set_power(0);
 }
