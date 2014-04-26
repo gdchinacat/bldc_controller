@@ -27,7 +27,7 @@ void Motor::tick() {
       if (_commutation_period > 0) {
         next_commutation();
         ticks = 0;
-        if (_commutation_period < 450) { // TODO - use interrupts
+        if (_commutation_period < 550) { // TODO - use interrupts
           sensing = true;
         }
       }

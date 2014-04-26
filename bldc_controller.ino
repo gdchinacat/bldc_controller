@@ -141,10 +141,10 @@ void loop() {
   
   // start
   int rpm = 0;
-  for (rpm = 40; !motor.sensing; rpm+=6) { 
+  for (rpm = 40; !motor.sensing; rpm+=5) { 
     motor.set_rpm(rpm);
     Serial.print(" rpm: " ); Serial.println(motor.rpm());
-    delay(35);
+    delay(25);
   }
   
   Serial.print("startup completed"); 
@@ -153,7 +153,7 @@ void loop() {
     Serial.print(" sensing");
   }
   Serial.println();
-
+  
   int input = 1;
   while (input) {
     
