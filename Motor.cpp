@@ -14,8 +14,8 @@ Motor::Motor(int poles) {
 }
 
 void Motor::reset() {
-  set_rpm(0);
   sensing = false;
+  set_rpm(0);
   _commutation = 5;
 }
 
@@ -24,9 +24,9 @@ void Motor::tick() {
   ticks++;
   if (!sensing) {
     if (ticks > _commutation_period) {
-      next_commutation();
-      ticks = 0;
       if (_commutation_period > 0) {
+        next_commutation();
+        ticks = 0;
         if (_commutation_period < 450) { // TODO - use interrupts
           sensing = true;
         }
