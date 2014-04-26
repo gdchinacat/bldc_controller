@@ -14,6 +14,7 @@ class Motor {
     void commutation_intr();
     int rpm();
     void reset();
+    void start();
     
     int poles;
     int _commutation_period;  // in ticks, public for speed control

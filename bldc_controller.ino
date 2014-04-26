@@ -139,17 +139,7 @@ void loop() {
   
   //alignment
   set_power(16);
-  motor.reset();
-  commutation = commutation_bits[5];
-  delay(2000);
-  
-  // start
-  int rpm = 0;
-  for (rpm = 40; !motor.sensing; rpm+=5) { 
-    motor.set_rpm(rpm);
-    Serial.print(" rpm: " ); Serial.println(motor.rpm());
-    delay(25);
-  }
+  motor.start();
   
   Serial.print("startup completed"); 
   Serial.print(" rpm: " ); Serial.print(motor.rpm());

@@ -19,6 +19,14 @@ void Motor::reset() {
   _commutation = 5;
 }
 
+void Motor::start() {
+  int rpm = 0;
+  for (rpm = 40; !motor.sensing; rpm+=5) { 
+    set_rpm(rpm);
+    delay(25);
+  }
+}
+
 void Motor::tick() {
   //drop_diag();
   ticks++;
