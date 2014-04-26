@@ -23,16 +23,14 @@ void Motor::tick() {
   //drop_diag();
   ticks++;
   if (!sensing) {
-    if (ticks > _commutation_period) {
-      if (_commutation_period > 0) {
-        next_commutation();
-        ticks = 0;
-        if (_commutation_period < 550) { // TODO - use interrupts
-          sensing = true;
-        }
+    if (_commutation_period > 0 && ticks > _commutation_period) {
+      next_commutation();
+      ticks = 0;
+      if (_commutation_period < 550) { // TODO - use interrupts
+        sensing = true;
       }
     }
-  } 
+  }
 }
 
 void Motor::commutation_intr() {
@@ -46,14 +44,12 @@ void Motor::commutation_intr() {
 
 int Motor::rpm() {
   if (sensing) {
-    //calculate it
-    int __commutation_period;
+    //calculate it from the commmutation period
     noInterrupts();
-    __commutation_period = _commutation_period;
+    int __commutation_period = _commutation_period;
     interrupts();
     return (int)(60 * 1000000.0 / (__commutation_period) / ( TIMER_MICROS * poles * 6));
-  } 
-  else {
+  } else {
     return _rpm;
   }
 }

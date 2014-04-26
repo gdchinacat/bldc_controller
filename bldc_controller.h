@@ -28,6 +28,12 @@ extern int commutation_to_skip;
 
 extern void next_commutation(void);
 
+#define ALL_COMMUTATION_BITS_OFF B11000000
+
+__inline__ void all_off() {
+  PORTB &= ALL_COMMUTATION_BITS_OFF;
+}
+
 __inline__ void raise_diag() {
   PORTD |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
 }
