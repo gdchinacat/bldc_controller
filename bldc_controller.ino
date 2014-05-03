@@ -140,16 +140,17 @@ void loop() {
   //alignment
   set_power(16);
   motor.start();
+  
   while (motor.sensing) {
-      
+
     // speed control
     int delta = 0;
-    int rpm_input = map(analogRead(pot_pin), 0, 1024, 800, 3500);
+    int rpm_input = map(analogRead(pot_pin), 0, 1024, 300, 3500);
     desired_commutation_period = motor.commutation_period_from_rpm(rpm_input);
 
     delta = motor._commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 5);
+      set_power(power_level + 2);
     } else if (delta < 0) {
       set_power(power_level - 1);
     }
@@ -164,6 +165,10 @@ void loop() {
     //if (motor.sensing) { Serial.print(" sensing"); }
     //Serial.println();
   }
+
+  set_power(0);
+  motor.reset();
+  delay(10000);  
     
 }
 

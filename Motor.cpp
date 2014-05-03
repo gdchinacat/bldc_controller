@@ -20,6 +20,7 @@ void Motor::reset() {
 }
 
 void Motor::start() {
+  delay(1500);
   int rpm = 0;
   for (rpm = 40; !motor.sensing; rpm+=5) { 
     set_rpm(rpm);
@@ -34,7 +35,7 @@ void Motor::tick() {
     if (_commutation_period > 0 && ticks > _commutation_period) {
       next_commutation();
       ticks = 0;
-      if (_commutation_period < 550) { // TODO - use interrupts
+      if (_commutation_period < 650) { // TODO - use interrupts
         sensing = true;
       }
     }
@@ -44,6 +45,9 @@ void Motor::tick() {
 void Motor::commutation_intr() {
   //raise_diag();
   if (sensing) {
+    if (ticks < 30) { // filter out the inductive kick (30 * 16us = 480us)
+      return;
+    }
     next_commutation();
     _commutation_period = ticks;
     ticks = 0;
