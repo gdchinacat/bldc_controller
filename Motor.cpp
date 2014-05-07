@@ -35,7 +35,7 @@ void Motor::tick() {
     if (_commutation_period > 0 && ticks > _commutation_period) {
       next_commutation();
       ticks = 0;
-      if (_commutation_period < 650) { // TODO - use interrupts
+      if (_commutation_period < 550) { // TODO - use interrupts
         sensing = true;
       }
     }
@@ -45,7 +45,7 @@ void Motor::tick() {
 void Motor::commutation_intr() {
   //raise_diag();
   if (sensing) {
-    if (ticks < 30) { // filter out the inductive kick (30 * 16us = 480us)
+    if (ticks < 5) { // ignore interrupts during the width of the interrupt signal
       return;
     }
     next_commutation();

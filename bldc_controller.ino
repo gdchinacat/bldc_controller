@@ -95,13 +95,13 @@ void next_commutation() {
   commutation = commutation_bits[_commutation];
 }
 
+static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
 
 ISR(TIMER1_OVF_vect)
 {
   drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
   static byte pwm_bits = 0;
-  static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
   
   TCNT1 = 0xFFFF;  //interrupt on next tick
 
@@ -132,6 +132,7 @@ __inline__ void set_power(byte _power_level) {
   byte* __power_level = pwm_bits[power_level];
   noInterrupts();
   pwm_level = __power_level;
+  pwm_ticks = 15;
   interrupts();
 }
 
@@ -150,9 +151,10 @@ void loop() {
 
     delta = motor._commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 2);
+      set_power(power_level + 1);
     } else if (delta < 0) {
       set_power(power_level - 1);
+      //set_power(0);
     }
 
     // Speed Control Monitor
