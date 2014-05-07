@@ -12,6 +12,7 @@ byte commutation_bits[6] = {B100001,
                             B000110,
                             B100100};
 #define ALL_COMMUTATION_BITS_OFF B11000000
+#define HIGH_COMMUTATION_BITS_OFF B11101010
 
 
 byte commutation = commutation_bits[0];
@@ -121,7 +122,7 @@ ISR(TIMER1_OVF_vect)
   if (pwm_bits & 1) {
     PORTB |= commutation;
   } else {
-    PORTB &= ALL_COMMUTATION_BITS_OFF;
+    PORTB &= HIGH_COMMUTATION_BITS_OFF;
   }
   //drop_diag();
   //raise_diag();
