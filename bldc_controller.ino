@@ -13,7 +13,7 @@ byte commutation_bits[6] = {B100001,
                             B100100};
 #define ALL_COMMUTATION_BITS_OFF B11000000
 #define HIGH_COMMUTATION_BITS_OFF B11101010
-
+#define LOW_COMMUTATION_BITS B101010
 
 byte commutation = commutation_bits[0];
 
@@ -23,6 +23,9 @@ static int desired_commutation_period;
  * The PWM bitmasks. 16 levels is 6.5% per level, which isn't
  * ideal, but the controller will maintain a constant speed,
  * effectively switching between power levels as appropriate.
+ *
+ * Strictly speaking, this isn't pulse width modulation, it's
+ * a ...
  */
  
 byte pwm_bits[17][2] = {{B00000000, B00000000},
@@ -81,48 +84,54 @@ void setup() {
 
 static byte _commutation = 5;
 
-
 void next_commutation() {
   //raise_diag();
-
-  // Turn off all the bits to avoid short circuit while the 
-  // high side is turning on and the low side is turning off.
-  PORTB &= ALL_COMMUTATION_BITS_OFF;
 
   if (++_commutation==6) {
     raise_diag();
     _commutation = 0;
   }
   commutation = commutation_bits[_commutation];
+
+  // Turn off all the bits to avoid short circuit while the 
+  // high side is turning on and the low side is turning off.
+  PORTB &= ALL_COMMUTATION_BITS_OFF; 
+
 }
 
 static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
+static byte _pwm_bits = 0;
 
 ISR(TIMER1_OVF_vect)
 {
   drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
-  static byte pwm_bits = 0;
   
   TCNT1 = 0xFFFF;  //interrupt on next tick
 
-  motor.tick();
-
+ motor.tick();
+  
   // PWM
   //raise_diag();
   pwm_ticks++;
   if (pwm_ticks == 16) {
-    pwm_bits = pwm_level[0];
+    _pwm_bits = pwm_level[0];
     pwm_ticks=0;
   } else if (pwm_ticks == 8) {
-    pwm_bits = pwm_level[1];
+    _pwm_bits = pwm_level[1];
   } else {
-    pwm_bits >>= 1;
+    _pwm_bits >>= 1;
   }
-  if (pwm_bits & 1) {
+  
+  if (_pwm_bits & 1) {
     PORTB |= commutation;
   } else {
-    PORTB &= HIGH_COMMUTATION_BITS_OFF;
+    // soft switching, doesn't work (well) with my sensorless circuit b/c 
+    // BEMF on high phase drops to ground and confuses the zero crossing circuitry
+    //PORTB &= HIGH_COMMUTATION_BITS_OFF; 
+
+    // hard switching, powered phases BEMF will be valid during pwm down
+    PORTB &= ALL_COMMUTATION_BITS_OFF;
   }
   //drop_diag();
   //raise_diag();
@@ -147,16 +156,23 @@ void loop() {
 
     // speed control
     int delta = 0;
-    int rpm_input = map(analogRead(pot_pin), 0, 1024, 300, 3500);
-    desired_commutation_period = motor.commutation_period_from_rpm(rpm_input);
-
-    delta = motor._commutation_period - desired_commutation_period;
+    //int rpm_input = map(analogRead(pot_pin), 0, 1024, 750, 2400);
+    //desired_commutation_period = motor.commutation_period_from_rpm(rpm_input);
+    
+    noInterrupts();
+    int commutation_period = motor._commutation_period;
+    interrupts();
+    desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 30);
+    delta = commutation_period - desired_commutation_period;
     if (delta > 0) {
       set_power(power_level + 1);
-    } else if (delta < 0) {
+      delayMicroseconds(30);
+    } else if (delta < -5) {
       set_power(power_level - 1);
       //set_power(0);
+      delayMicroseconds(60);
     }
+    //delayMicroseconds(500);
 
     // Speed Control Monitor
     //Serial.print(" rpm_input: "); Serial.print(rpm_input);
@@ -170,6 +186,7 @@ void loop() {
   }
 
   set_power(0);
+
   motor.reset();
   delay(10000);  
     
