@@ -86,15 +86,15 @@ static byte _commutation = 5;
 void next_commutation() {
   //raise_diag();
 
+  // Turn off all the bits to avoid short circuit while the 
+  // high side is turning on and the low side is turning off.
+  PORTB &= ALL_COMMUTATION_BITS_OFF; 
+
   if (++_commutation==6) {
     raise_diag();
     _commutation = 0;
   }
   commutation = commutation_bits[_commutation];
-
-  // Turn off all the bits to avoid short circuit while the 
-  // high side is turning on and the low side is turning off.
-  PORTB &= ALL_COMMUTATION_BITS_OFF; 
 
 }
 
