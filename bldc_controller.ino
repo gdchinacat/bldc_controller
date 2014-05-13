@@ -99,10 +99,11 @@ void next_commutation() {
 }
 
 static byte pwm_ticks = 15;  // tracks when it's time to pull a new set of pwm_bits in
-static byte _pwm_bits = 0;
 
 ISR(TIMER1_OVF_vect)
 {
+  static byte _pwm_bits = 0;
+
   drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
   
