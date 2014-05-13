@@ -9,8 +9,6 @@ class Motor {
   public:
     Motor(int poles);
     void tick();
-    void set_rpm(unsigned int rpm);
-    int commutation_period_from_rpm(unsigned int rpm); //public for speed control
     void commutation_intr();
     int rpm();
     void reset();
@@ -21,9 +19,9 @@ class Motor {
     boolean sensing;
 
   private:
-    unsigned int _rpm;
     byte _commutation;         // the current commutation
     int ticks;
+    void set_commutation_period(int period);
 
 };
 

@@ -2,6 +2,7 @@
 #include "bldc_controller.h"
 #include "Motor.h"
 
+
 /*
  pins in PORTD are used [8,9], [10,11], [12,13], first is high side, second is low side
  */
@@ -67,8 +68,6 @@ void initialize_timer1() {
 
 void setup() {
 
-  desired_commutation_period = motor.commutation_period_from_rpm(0);
-  
   pinMode(diag_pin, OUTPUT);
   pinMode(pot_pin, INPUT);
   
@@ -148,47 +147,49 @@ __inline__ void set_power(byte _power_level) {
 
 void loop() {
   
-  //alignment
   set_power(16);
   motor.start();
   
   while (motor.sensing) {
-
-    // speed control
-    int delta = 0;
+    // RPM bases speed control - theoretically more accurate since it can switch between desired commutation
+    //                           periods but the floating point math is quite expensive and the resulting
+    //                           speed regulation doesn't seem all that much better. While slowing turning
+    //                           the knob up it does seem less jerky than commutation period algorithm.
     //int rpm_input = map(analogRead(pot_pin), 0, 1024, 750, 2400);
     //desired_commutation_period = motor.commutation_period_from_rpm(rpm_input);
+
+    // commutation period control - integer math so is significantly faster than the one above.
+    desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 30);
     
     noInterrupts();
     int commutation_period = motor._commutation_period;
     interrupts();
-    desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 30);
-    delta = commutation_period - desired_commutation_period;
+    
+    int delta = commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 1);
-      delayMicroseconds(30);
-    } else if (delta < -5) {
-      set_power(power_level - 1);
+      set_power(power_level + 2);
+    } else if (delta < -2) {
       //set_power(0);
-      delayMicroseconds(60);
+      set_power(power_level - 1);
     }
-    //delayMicroseconds(500);
-
+    
     // Speed Control Monitor
     //Serial.print(" rpm_input: "); Serial.print(rpm_input);
     //Serial.print(" desired: "); Serial.print(desired_commutation_period);
-    //Serial.print(" period:"); Serial.print(motor._commutation_period); 
+    //Serial.print(" period:"); Serial.print(commutation_period); 
     //Serial.print(" delta:"); Serial.print(delta); 
     //Serial.print(" power_level:"); Serial.print(power_level);
     //Serial.print(" rpm:"); Serial.print(motor.rpm());
     //if (motor.sensing) { Serial.print(" sensing"); }
     //Serial.println();
+
+    //wait rouphly more than one commutation period 
+    delayMicroseconds(commutation_period * TIMER_MICROS);
+
   }
 
   set_power(0);
-
   motor.reset();
-  delay(10000);  
     
 }
 

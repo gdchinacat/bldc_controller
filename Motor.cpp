@@ -15,16 +15,24 @@ Motor::Motor(int poles) {
 
 void Motor::reset() {
   sensing = false;
-  set_rpm(0);
+  noInterrupts();
   _commutation = 5;
+  _commutation_period = -1;
+  interrupts();
+}
+
+void Motor::set_commutation_period(int period) {
+  noInterrupts();
+  _commutation_period = period;
+  interrupts();
 }
 
 void Motor::start() {
-  delay(1500);
-  int rpm = 0;
-  for (rpm = 40; !motor.sensing; rpm+=5) { 
-    set_rpm(rpm);
-    delay(25);
+  reset();
+  delay(2000);
+  for (int period = 2250; !sensing; period -=281) {
+    set_commutation_period(period);
+    delayMicroseconds(2500);
   }
 }
 
@@ -62,27 +70,9 @@ int Motor::rpm() {
     interrupts();
     return (int)(60 * 1000000.0 / (__commutation_period) / ( TIMER_MICROS * poles * 6));
   } else {
-    return _rpm;
-  }
-}
-
-void Motor::set_rpm(unsigned int rpm) {
-  if (!sensing) {
-    this->_rpm = rpm;
-    _commutation_period = commutation_period_from_rpm(rpm);
-  }
-}
-
-int Motor::commutation_period_from_rpm(unsigned int rpm) { // in millis
-  if (rpm == 0) {
     return -1;
-  } 
-  else {
-    rpm = min(MAX_RPM, rpm);
-    float freq = (((float)rpm) * poles * 6) / 60;
-    float period = (1000000.0 / freq);
-    return (int)(period / TIMER_MICROS);
   }
+
 }
 
 
