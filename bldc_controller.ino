@@ -150,7 +150,7 @@ void loop() {
   
   set_power(16);
   motor.start();
-  
+ 
   while (motor.sensing) {
     // RPM bases speed control - theoretically more accurate since it can switch between desired commutation
     //                           periods but the floating point math is quite expensive and the resulting
@@ -183,7 +183,7 @@ void loop() {
     //Serial.print(" rpm:"); Serial.print(motor.rpm());
     //if (motor.sensing) { Serial.print(" sensing"); }
     //Serial.println();
-
+    
     //wait rouphly more than one commutation period 
     delayMicroseconds(commutation_period * TIMER_MICROS);
 

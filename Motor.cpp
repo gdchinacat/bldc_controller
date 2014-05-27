@@ -18,6 +18,8 @@ void Motor::reset() {
   noInterrupts();
   _commutation = 5;
   _commutation_period = -1;
+  _phase_ticks = 0;
+  phase_ticks = 0;
   interrupts();
 }
 
@@ -39,7 +41,11 @@ void Motor::start() {
 void Motor::tick() {
   //drop_diag();
   ticks++;
-  if (!sensing) {
+  if (sensing) {
+    if (_phase_ticks > 0 && --_phase_ticks == 0) {
+      next_commutation();
+    }
+  } else {
     if (_commutation_period > 0 && ticks > _commutation_period) {
       next_commutation();
       ticks = 0;
@@ -56,7 +62,11 @@ void Motor::commutation_intr() {
     if (ticks < 5) { // ignore interrupts during the width of the interrupt signal
       return;
     }
-    next_commutation();
+    if (phase_ticks > 0) {
+      _phase_ticks = phase_ticks;
+    } else {
+      next_commutation();
+    }
     _commutation_period = ticks;
     ticks = 0;
   }
