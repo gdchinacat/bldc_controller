@@ -18,8 +18,8 @@ void Motor::reset() {
   noInterrupts();
   _commutation = 5;
   _commutation_period = -1;
-  _phase_ticks = 0;
-  phase_ticks = 0;
+  _commutation_ticks = 0;
+  phase_shift = 0;
   interrupts();
 }
 
@@ -42,7 +42,7 @@ void Motor::tick() {
   //drop_diag();
   ticks++;
   if (sensing) {
-    if (_phase_ticks > 0 && --_phase_ticks == 0) {
+    if (_commutation_ticks > 0 && --_commutation_ticks == 0) {
       next_commutation();
     }
   } else {
@@ -62,13 +62,11 @@ void Motor::commutation_intr() {
     if (ticks < 5) { // ignore interrupts during the width of the interrupt signal
       return;
     }
-    if (phase_ticks > 0) {
-      _phase_ticks = phase_ticks;
-    } else {
-      next_commutation();
-    }
+
     _commutation_period = ticks;
+    _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
     ticks = 0;
+
   }
 }
 

@@ -150,27 +150,21 @@ void loop() {
   
   set_power(16);
   motor.start();
- 
+  
   while (motor.sensing) {
-    // RPM bases speed control - theoretically more accurate since it can switch between desired commutation
-    //                           periods but the floating point math is quite expensive and the resulting
-    //                           speed regulation doesn't seem all that much better. While slowing turning
-    //                           the knob up it does seem less jerky than commutation period algorithm.
-    //int rpm_input = map(analogRead(pot_pin), 0, 1024, 750, 2400);
-    //desired_commutation_period = motor.commutation_period_from_rpm(rpm_input);
-
-    // commutation period control - integer math so is significantly faster than the one above.
-    desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 30);
+    // how fast should we go
+    desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 20);
     
+    // how fast are we going 
     noInterrupts();
     int commutation_period = motor._commutation_period;
     interrupts();
     
+    //adjust power level accordingly
     int delta = commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 2);
+      set_power(power_level + 1);
     } else if (delta < -2) {
-      //set_power(0);
       set_power(power_level - 1);
     }
     
