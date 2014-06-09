@@ -151,6 +151,8 @@ void loop() {
   set_power(16);
   motor.start();
   
+  int mult = 0;
+  
   while (motor.sensing) {
     // how fast should we go
     desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 20);
@@ -163,22 +165,27 @@ void loop() {
     //adjust power level accordingly
     int delta = commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 1);
-    } else if (delta < -2) {
+      set_power(power_level + 16);
+    } else if (delta < -10) {
       set_power(power_level - 1);
     }
-    
-    // Speed Control Monitor
-    //Serial.print(" desired: "); Serial.print(desired_commutation_period);
-    //Serial.print(" period:"); Serial.print(commutation_period); 
-    //Serial.print(" delta:"); Serial.print(delta); 
-    //Serial.print(" power_level:"); Serial.print(power_level);
-    //Serial.print(" rpm:"); Serial.print(motor.rpm());
-    //if (motor.sensing) { Serial.print(" sensing"); }
-    //Serial.println();
-    
     //wait rouphly more than one commutation period 
     delayMicroseconds(commutation_period * TIMER_MICROS);
+
+    if (++mult == 20) {
+      mult = 0;
+    
+      // Speed Control Monitor
+      //Serial.print(" desired: "); Serial.print(desired_commutation_period);
+      //Serial.print(" period:"); Serial.print(commutation_period); 
+      //Serial.print(" delta:"); Serial.print(delta); 
+      //Serial.print(" power_level:"); Serial.print(power_level);
+      //Serial.print(" rpm:"); Serial.print(motor.rpm());
+      //if (motor.sensing) { Serial.print(" sensing"); }
+      //Serial.println();
+
+    }
+    
 
   }
 
