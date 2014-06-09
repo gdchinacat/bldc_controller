@@ -17,15 +17,16 @@ void Motor::reset() {
   sensing = false;
   noInterrupts();
   _commutation = 5;
-  _commutation_period = -1;
   _commutation_ticks = 0;
   phase_shift = 0;
   interrupts();
 }
 
-void Motor::set_commutation_period(int period) {
+void Motor::set_commutation_period(unsigned int period) {
   noInterrupts();
-  _commutation_period = period;
+  if (!sensing) {
+    _commutation_ticks = period;
+  }
   interrupts();
 }
 
@@ -41,16 +42,16 @@ void Motor::start() {
 void Motor::tick() {
   //drop_diag();
   ticks++;
-  if (sensing) {
-    if (_commutation_ticks > 0 && --_commutation_ticks == 0) {
-      next_commutation();
-    }
-  } else {
-    if (_commutation_period > 0 && ticks > _commutation_period) {
-      next_commutation();
-      ticks = 0;
-      if (_commutation_period < 550) { // TODO - use interrupts
+  if (_commutation_ticks && ticks >= _commutation_ticks) {
+    next_commutation();
+    if (sensing) {
+      _commutation_ticks = 0;  // interrupt sets next commutation
+    } else {
+      if (commutation_period < 550) { // TODO - use interrupts
+        _commutation_ticks = 0;  // interrupt sets next commutation
         sensing = true;
+      } else {
+        ticks = 0;
       }
     }
   }
@@ -58,27 +59,23 @@ void Motor::tick() {
 
 void Motor::commutation_intr() {
   //raise_diag();
-  if (sensing) {
-    if (ticks < 5) { // ignore interrupts during the width of the interrupt signal
-      return;
-    }
-
-    _commutation_period = ticks;
+  // set the next commutation time if it isn't already set
+  if (!_commutation_ticks) { // the first zero crossing in a step is used
+    commutation_period = ticks;
     _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
     ticks = 0;
-
   }
 }
 
-int Motor::rpm() {
+unsigned int Motor::rpm() {
   if (sensing) {
     //calculate it from the commmutation period
     noInterrupts();
-    int __commutation_period = _commutation_period;
+    unsigned int __commutation_period = commutation_period;
     interrupts();
-    return (int)(60 * 1000000.0 / (__commutation_period) / ( TIMER_MICROS * poles * 6));
+    return (unsigned int)(60 * 1000000.0 / (__commutation_period) / ( TIMER_MICROS * poles * 6));
   } else {
-    return -1;
+    return 0;
   }
 
 }

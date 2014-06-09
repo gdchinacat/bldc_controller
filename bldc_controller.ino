@@ -157,7 +157,7 @@ void loop() {
     
     // how fast are we going 
     noInterrupts();
-    int commutation_period = motor._commutation_period;
+    int commutation_period = motor.commutation_period;
     interrupts();
     
     //adjust power level accordingly
@@ -169,7 +169,6 @@ void loop() {
     }
     
     // Speed Control Monitor
-    //Serial.print(" rpm_input: "); Serial.print(rpm_input);
     //Serial.print(" desired: "); Serial.print(desired_commutation_period);
     //Serial.print(" period:"); Serial.print(commutation_period); 
     //Serial.print(" delta:"); Serial.print(delta); 
