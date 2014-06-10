@@ -6,6 +6,13 @@
 
 class Motor {
   
+  /*
+   * TODO -
+   *
+   *  1) use pin change interrupts with masks to effectively multiplex the outputs 
+         of the three phase comparators to implement better filtering and allowing
+         soft switching. Also frees up which ports can be used for interrupts.
+   */
   public:
     Motor(int poles, int commutation_pin, int speed_pin);
     void start();

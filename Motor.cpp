@@ -261,6 +261,11 @@ void Motor::tick() {
   } else {
     // soft switching, doesn't work (well) with my sensorless circuit b/c 
     // BEMF on high phase drops to ground and confuses the zero crossing circuitry
+    //
+    // My plan is to bring all three phase comparator outputs to the board and
+    // use pin change interrupts with selective masking to do multiplexing without
+    // external hardware.
+    //
     //PORTB &= HIGH_COMMUTATION_BITS_OFF; 
 
     // hard switching, powered phases BEMF will be valid during pwm down
