@@ -4,7 +4,7 @@
 
 
 /** the motor */
-Motor motor(4, 0, A5);
+Motor motor(4, A5);
 
 void initialize_timer1() {
   noInterrupts();

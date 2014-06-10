@@ -43,12 +43,8 @@ const byte commutation_bits[6] = {B100001,
 #define  ALL_COMMUTATION_BITS_OFF B11000000
 #define HIGH_COMMUTATION_BITS_OFF B11101010
 
-extern Motor motor;
-void __commutation_intr() {
-  motor.commutation_intr();
-}
 
-Motor::Motor(int poles, int commutation_interrupt, int speed_pin) {
+Motor::Motor(int poles, int speed_pin) {
   this->poles = poles;
   this->speed_pin = speed_pin;
 
@@ -56,7 +52,15 @@ Motor::Motor(int poles, int commutation_interrupt, int speed_pin) {
   DDRB |= B111111;  // pins 8-13 as output
   PORTB &= B11000000; // pins 8-13 LOW
   pinMode(speed_pin, INPUT);
-  attachInterrupt(commutation_interrupt, __commutation_intr, RISING);
+
+  // enable interrupts on ports 2-4
+  PCMSK2 = 1<<2 | 1<<3 | 1<<4;
+  PCICR |= 1 << PCIE2;
+}
+
+extern Motor motor;
+SIGNAL(PCINT2_vect) {
+  motor.commutation_intr();
 }
 
 void Motor::reset() {
