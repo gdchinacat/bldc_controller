@@ -69,7 +69,7 @@ void initialize_timer1() {
 void setup() {
 
   pinMode(diag_pin, OUTPUT);
-  pinMode(pot_pin, INPUT);
+  pinMode(speed_pin, INPUT);
   
   DDRB |= B111111;  // pins 8-13 as output
   PORTB &= B11000000; // pins 8-13 LOW
@@ -155,7 +155,7 @@ void loop() {
   
   while (motor.sensing) {
     // how fast should we go
-    desired_commutation_period = map(analogRead(pot_pin), 0, 1024, 300, 20);
+    desired_commutation_period = map(analogRead(speed_pin), 0, 1024, 300, 20);
     
     // how fast are we going 
     noInterrupts();
@@ -165,8 +165,8 @@ void loop() {
     //adjust power level accordingly
     int delta = commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 16);
-    } else if (delta < -10) {
+      set_power(power_level + 1);
+    } else if (delta < -1) {
       set_power(power_level - 1);
     }
     //wait rouphly more than one commutation period 

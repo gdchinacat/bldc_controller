@@ -4,10 +4,8 @@
 
 #include "Arduino.h"
 
-#define MAX_RPM 10000
-
 // the pin the potentiometer is connected to
-#define pot_pin A5
+#define speed_pin A5
 
 // the pin to use for commutation interrupts
 #define commutation_interrupt 0
@@ -21,10 +19,6 @@
 #define TIMER_FREQ (16000000.0 / 256.0) // period of the timer in microseconds (assumes 16mhz cpu)
 //LH - hard coded since 4 byte floats are dropping the precision
 #define TIMER_MICROS 16
-
-extern byte commutation;
-extern byte commutation_bits[];
-extern int commutation_to_skip;
 
 extern void next_commutation(void);
 
