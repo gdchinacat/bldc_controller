@@ -29,6 +29,7 @@ class Motor {
     byte pwm_ticks;         // tracks when it's time to pull a new set of pwm_bits in
     
     // commutation
+    int interrupt_count;              // # of interrupts since last reset()
     int phase_shift;                  // # of ticks to shift commutation by
     unsigned int commutation_period;  // last commutation period, in ticks
     byte commutation;                 // current commutation step
@@ -38,7 +39,6 @@ class Motor {
     
     void next_commutation();  // advance to the next commutation step at the next timer tick
     void set_power(byte);     // set the power level
-    void set_commutation_period(unsigned int period); // set the commutation period for open loop commutation (sensing == false)
     void reset();
 };
 

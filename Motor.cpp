@@ -61,10 +61,11 @@ Motor::Motor(int poles, int commutation_interrupt, int speed_pin) {
 
 void Motor::reset() {
   noInterrupts();
-  direction = -1;
+  direction = 1;
   sensing = false;
   phase_shift = 0;
   
+  interrupt_count = 0;
   commutation = commutation_bits[0];
   commutation = 5;
   _commutation_ticks = 0;
@@ -97,26 +98,131 @@ void Motor::next_commutation() {
     raise_diag();
     commutation = 0;
   } else if (commutation==255) {
+    raise_diag();
     commutation = 5;
   }
   _commutation = commutation_bits[commutation];
 }
 
-void Motor::set_commutation_period(unsigned int period) {
-  noInterrupts();
-  if (!sensing) {
-    _commutation_ticks = period;
-  }
-  interrupts();
-}
+/* Ramp up table of (power_level, commutation_period, delay) tuples */
+const unsigned int RAMP_UP[][2] = {{3906, 25},
+                          {3472, 25},
+                          {3125, 25},
+                          {2840, 25},
+                          {2604, 25},
+                          {2403, 25},
+                          {2232, 25},
+                          {2083, 25},
+                          {1953, 25},
+                          {1838, 25},
+                          {1736, 25},
+                          {1644, 25},
+                          {1562, 25},
+                          {1488, 25},
+                          {1420, 25},
+                          {1358, 25},
+                          {1302, 25},
+                          {1250, 25},
+                          {1201, 25},
+                          {1157, 25},
+                          {1116, 25},
+                          {1077, 25},
+                          {1041, 25},
+                          {1008, 25},
+                          {976, 25},
+                          {946, 25},
+                          {919, 25},
+                          {892, 25},
+                          {868, 25},
+                          {844, 25},
+                          {822, 25},
+                          {801, 25},
+                          {781, 25},
+                          {762, 25},
+                          {744, 25},
+                          {726, 25},
+                          {710, 25},
+                          {694, 25},
+                          {679, 25},
+                          {664, 25},
+                          {651, 25},
+                          {637, 25},
+                          {625, 25},
+                          {612, 25},
+                          {600, 25},
+                          {589, 25},
+                          {578, 25},
+                          {568, 25},
+                          {558, 25},
+                          {548, 25},
+                          {538, 25},
+                          {529, 25},
+                          {520, 25},
+                          {512, 25},
+                          {504, 25},
+                          {496, 25},
+                          {488, 25},
+                          {480, 25},
+                          {473, 25},
+                          {466, 25},
+                          {459, 25},
+                          {452, 25},
+                          {446, 25},
+                          {440, 25},
+                          {434, 25},
+                          {428, 25},
+                          {422, 25},
+                          {416, 25},
+                          {411, 25},
+                          {405, 25},
+                          {400, 25},
+                          {395, 25},
+                          {390, 25},
+                          {385, 25},
+                          {381, 25},
+                          {376, 25},
+                          {372, 25},
+                          {367, 25},
+                          {363, 25},
+                          {359, 25},
+                          {355, 25},
+                          {351, 25},
+                          {347, 25},
+                          {343, 25},
+                          {339, 25},
+                          {336, 25},
+                          {332, 25},
+                          {328, 25},
+                          {325, 25},
+                          {322, 25},
+                          {318, 25},
+                          {315, 25},
+
+                          {0, 0}};
 
 void Motor::start() {
-  set_power(16);
-  reset();
-  delay(2000);
-  for (int period = 2250; !sensing; period -=281) {
-    set_commutation_period(period);
-    delayMicroseconds(2500);
+  while (!sensing) {
+    set_power(0);
+    reset();
+
+    // align
+    set_power(16);
+    delay(2000);
+    
+    // ramp up
+    for (const unsigned int *c = RAMP_UP[0]; c[0] && !sensing; c+=2) {
+      int period = c[0];
+      int _delay = c[1];
+      //Serial.print("period: "); Serial.print(period); Serial.print(" delay: "); Serial.print(_delay); Serial.println();
+      noInterrupts();
+      if (!sensing) {
+        _commutation_ticks = period;
+      }
+      interrupts();
+      delay(_delay);
+    }
+    
+    // Ooops, got to the end of startup and not sensing...start over
   }
 }
 
@@ -129,11 +235,13 @@ void Motor::tick() {
       _commutation_ticks = 0;  // interrupt sets next commutation
     } else {
       ticks = 0;
-      if (commutation_period < 550) { // TODO - use interrupts
+      if (interrupt_count > 5) {
         _commutation_ticks = 0;  // interrupt sets next commutation
         sensing = true;
       }
     }
+  } else if (ticks > 5000) {
+    sensing = false;
   }
 
   // PWM
@@ -164,11 +272,14 @@ void Motor::tick() {
 
 void Motor::commutation_intr() {
   //raise_diag();
-  // set the next commutation time if it isn't already set
-  if (!_commutation_ticks) { // the first zero crossing in a step is used
-    commutation_period = ticks;
-    _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
-    ticks = 0;
+  interrupt_count++;
+  if (sensing) {
+    // set the next commutation time if it isn't already set
+    if (!_commutation_ticks) { // the first zero crossing in a step is used
+      commutation_period = ticks;
+      _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
+      ticks = 0;
+    }
   }
 }
 
@@ -189,7 +300,7 @@ unsigned int Motor::speed_control() {
       set_power(power_level - 1);
     }
 
-    return commutation_period * TIMER_MICROS;
+    return sensing ? commutation_period * TIMER_MICROS : 0;
 }
 
 unsigned int Motor::rpm() {

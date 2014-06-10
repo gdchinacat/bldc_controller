@@ -3,6 +3,7 @@
 #include "Motor.h"
 
 
+/** the motor */
 Motor motor(4, 0, A5);
 
 void initialize_timer1() {
@@ -21,7 +22,7 @@ void setup() {
 
   pinMode(diag_pin, OUTPUT);
       
-  //Serial.begin(9600);
+  //Serial.begin(115200);
   //Serial.setTimeout(5);
   
 }
@@ -40,8 +41,9 @@ void loop() {
   
   int mult = 0;
   
-  while (true) {
-    unsigned int _delay = motor.speed_control();
+  unsigned int _delay;
+  do {
+    _delay = motor.speed_control();
     delayMicroseconds(_delay);
 
     if (++mult == 20) {
@@ -57,8 +59,7 @@ void loop() {
       //Serial.println();
 
     }
-    
-  }
+  } while (_delay > 0);
 }
 
 
