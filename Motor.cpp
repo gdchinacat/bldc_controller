@@ -11,7 +11,7 @@
  * a ...
  */
 
-const byte pwm_bits[17][2] = {{B00000000, B00000000},
+const byte pwm_bits[17][2] = {{B00000000, B00000000}, //hardcoded
                               {B00000000, B00000001},
                               {B00000001, B00000001},
                               {B00000100, B00100001},
@@ -33,14 +33,14 @@ const byte pwm_bits[17][2] = {{B00000000, B00000000},
 /*
  pins in PORTD are used [8,9], [10,11], [12,13], first is high side, second is low side
  */
-const byte commutation_bits[6] = {B100001,
+const byte commutation_bits[6] = {B100001, // hardcoded
                                   B001001,
                                   B011000,
                                   B010010,
                                   B000110,
                                   B100100};
                                   
-const byte zero_crossing_pin[6] = {1<<3,
+const byte zero_crossing_pin[6] = {1<<3, //hardcoded
                                    1<<4,
                                    1<<2,
                                    1<<3,
@@ -65,6 +65,7 @@ SIGNAL(PCINT2_vect) {
 void Motor::reset() {
   noInterrupts();
 
+  /* hardcoded */
   pinMode(speed_pin, INPUT);
 
   DDRB |= B111111;  // pins 8-13 as output
@@ -72,6 +73,7 @@ void Motor::reset() {
 
   PCMSK2 = 0; // no phase selected for zero crossing detection
   PCICR |= 1 << PCIE2;
+  /* end hardcoded */
 
   direction = 1;
   sensing = false;
@@ -104,7 +106,7 @@ void Motor::next_commutation() {
 
   // Turn off all the bits to avoid short circuit while the 
   // high side is turning on and the low side is turning off.
-  PORTB &= ALL_COMMUTATION_BITS_OFF; 
+  PORTB &= ALL_COMMUTATION_BITS_OFF; //hardcoded
   commutation += direction;
   if (commutation==6) {
     raise_diag();
@@ -113,12 +115,12 @@ void Motor::next_commutation() {
     raise_diag();
     commutation = 5;
   }
-  PCMSK2 = zero_crossing_pin[commutation];
+  PCMSK2 = zero_crossing_pin[commutation];  //start watching for zero crossing on idle phase // hardcoded
   _commutation = commutation_bits[commutation];
 }
 
 /* Ramp up table of (power_level, commutation_period, delay) tuples */
-const unsigned int RAMP_UP[][2] = {{3906, 25},
+const unsigned int RAMP_UP[][2] = {{3906, 25},  //hardcoded
                           {3472, 25},
                           {3125, 25},
                           {2840, 25},
@@ -142,7 +144,7 @@ void Motor::start() {
     reset();
 
     // align
-    set_power(16);
+    set_power(16); //hardcoded
     delay(2000);
     
     // ramp up
@@ -193,9 +195,9 @@ void Motor::tick() {
   }
   
   if (_pwm_bits & 1) {
-    PORTB |= _commutation;
+    PORTB |= _commutation; //hardcoded
   } else {
-    PORTB = (PORTB | _commutation) & HIGH_COMMUTATION_BITS_OFF; 
+    PORTB = (PORTB | _commutation) & HIGH_COMMUTATION_BITS_OFF; //hardcoded
   }
   //drop_diag();
   //raise_diag();
@@ -216,14 +218,14 @@ void Motor::commutation_intr() {
 
 unsigned int Motor::speed_control() {
     // how fast should we go
-    int desired_commutation_period = map(analogRead(speed_pin), 0, 1024, 300, 20);
+    int desired_commutation_period = map(analogRead(speed_pin), 0, 1024, 300, 20);  //hardcoded
     
     // how fast are we going 
     noInterrupts();
     int _commutation_period = commutation_period;
     interrupts();
     
-    //adjust power level accordingly
+    //adjust power level accordingly  //hardcoded
     int delta = _commutation_period - desired_commutation_period;
     if (delta > 0) {
       set_power(power_level + 1);
