@@ -40,9 +40,8 @@ const byte commutation_bits[6] = {B100001,
                                   B000110,
                                   B100100};
                             
-#define ALL_COMMUTATION_BITS_OFF B11000000
+#define  ALL_COMMUTATION_BITS_OFF B11000000
 #define HIGH_COMMUTATION_BITS_OFF B11101010
-#define LOW_COMMUTATION_BITS B101010
 
 extern Motor motor;
 void __commutation_intr() {
@@ -64,7 +63,7 @@ void Motor::reset() {
   phase_shift = 0;
   
   commutation = commutation_bits[0];
-  _commutation = 5;
+  commutation = 5;
   _commutation_ticks = 0;
   
   _pwm_bits = 0;
@@ -91,11 +90,11 @@ void Motor::next_commutation() {
   // high side is turning on and the low side is turning off.
   PORTB &= ALL_COMMUTATION_BITS_OFF; 
 
-  if (++_commutation==6) {
+  if (++commutation==6) {
     raise_diag();
-    _commutation = 0;
+    commutation = 0;
   }
-  commutation = commutation_bits[_commutation];
+  _commutation = commutation_bits[commutation];
 }
 
 void Motor::set_commutation_period(unsigned int period) {
@@ -145,7 +144,7 @@ void Motor::tick() {
   }
   
   if (_pwm_bits & 1) {
-    PORTB |= commutation;
+    PORTB |= _commutation;
   } else {
     // soft switching, doesn't work (well) with my sensorless circuit b/c 
     // BEMF on high phase drops to ground and confuses the zero crossing circuitry
