@@ -53,6 +53,8 @@ Motor::Motor(int poles, int commutation_interrupt, int speed_pin) {
   this->speed_pin = speed_pin;
 
   reset();
+  DDRB |= B111111;  // pins 8-13 as output
+  PORTB &= B11000000; // pins 8-13 LOW
   pinMode(speed_pin, INPUT);
   attachInterrupt(commutation_interrupt, __commutation_intr, RISING);
 }
