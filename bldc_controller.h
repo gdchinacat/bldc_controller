@@ -10,15 +10,15 @@
 #define TIMER_MICROS 16
 
 // diag_pin is the pin used for diagnostic signals
-#define diag_pin 4
-#define diag_pin_bit (1 << diag_pin)
+#define diag_pin A0
+#define diag_pin_bit (1 << 0)
 
 __inline__ void raise_diag() {
-  PORTD |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
+  PORTC |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
 }
 
 __inline__ void drop_diag() {
-  PORTD &= ~diag_pin_bit;
+  PORTC &= ~diag_pin_bit;
 }
 
 #endif
