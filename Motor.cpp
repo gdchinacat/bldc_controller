@@ -195,7 +195,7 @@ void Motor::tick() {
   if (_pwm_bits & 1) {
     PORTB |= _commutation;
   } else {
-    PORTB &= HIGH_COMMUTATION_BITS_OFF; 
+    PORTB = (PORTB | _commutation) & HIGH_COMMUTATION_BITS_OFF; 
   }
   //drop_diag();
   //raise_diag();
@@ -227,7 +227,7 @@ unsigned int Motor::speed_control() {
     int delta = _commutation_period - desired_commutation_period;
     if (delta > 0) {
       set_power(power_level + 1);
-    } else if (delta < -1) {
+    } else if (delta < 0) {
       set_power(power_level - 1);
     }
 
