@@ -195,9 +195,17 @@ void Motor::tick() {
   }
   
   if (_pwm_bits & 1) {
-    PORTB |= _commutation; //hardcoded
+    PORTB = PORTB & ALL_COMMUTATION_BITS_OFF | _commutation; //hardcoded
   } else {
-    PORTB = (PORTB | _commutation) & HIGH_COMMUTATION_BITS_OFF; //hardcoded
+    //hard switching
+    //PORTB &= ALL_COMMUTATION_BITS_OFF;
+    
+    // soft switching
+    PORTB &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
+    
+    // complementary switching
+    // shift and mask to turn the complementary low transistor on
+    //PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
   }
   //drop_diag();
   //raise_diag();
