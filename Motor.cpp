@@ -61,6 +61,7 @@ Motor::Motor(int poles, int commutation_interrupt, int speed_pin) {
 
 void Motor::reset() {
   noInterrupts();
+  direction = -1;
   sensing = false;
   phase_shift = 0;
   
@@ -91,10 +92,12 @@ void Motor::next_commutation() {
   // Turn off all the bits to avoid short circuit while the 
   // high side is turning on and the low side is turning off.
   PORTB &= ALL_COMMUTATION_BITS_OFF; 
-
-  if (++commutation==6) {
+  commutation += direction;
+  if (commutation==6) {
     raise_diag();
     commutation = 0;
+  } else if (commutation==255) {
+    commutation = 5;
   }
   _commutation = commutation_bits[commutation];
 }
