@@ -32,12 +32,11 @@ void setup() {
 ISR(TIMER1_OVF_vect)
 {
 
-  drop_diag();
   //raise_diag(); // diagnostic trigger on every timer  
   
   TCNT1 = 0xFFFF;  //interrupt on next tick
 
- motor.tick();
+  motor.tick();
   
 }
 

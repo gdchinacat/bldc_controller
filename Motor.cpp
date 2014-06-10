@@ -117,7 +117,7 @@ void Motor::start() {
 }
 
 void Motor::tick() {
-  //drop_diag();
+  drop_diag();
   ticks++;
   if (_commutation_ticks && ticks >= _commutation_ticks) {
     next_commutation();
