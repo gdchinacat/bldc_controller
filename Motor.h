@@ -7,7 +7,7 @@
 class Motor {
   
   public:
-    Motor(int poles);
+    Motor(int poles, int commutation_interrupt);
     void tick();
     void commutation_intr();
     unsigned int rpm();

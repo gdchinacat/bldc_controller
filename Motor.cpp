@@ -7,7 +7,7 @@ void __commutation_intr() {
   motor.commutation_intr();
 }
 
-Motor::Motor(int poles) {
+Motor::Motor(int poles, int commutation_interrupt) {
   this->poles = poles;
   reset();
   attachInterrupt(commutation_interrupt, __commutation_intr, RISING);

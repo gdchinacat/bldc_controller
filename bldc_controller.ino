@@ -54,7 +54,7 @@ byte pwm_bits[17][2] = {{B00000000, B00000000},
 byte power_level = 0;
 byte* pwm_level = pwm_bits[power_level];  // start off
 
-Motor motor(4);
+Motor motor(4, 0);
 
 void initialize_timer1() {
   noInterrupts();           // disable all interrupts
