@@ -39,23 +39,22 @@ const byte commutation_bits[6] = {B100001,
                                   B010010,
                                   B000110,
                                   B100100};
-                            
+                                  
+const byte zero_crossing_pin[6] = {1<<3,
+                                   1<<4,
+                                   1<<2,
+                                   1<<3,
+                                   1<<4,
+                                   1<<2};
+
 #define  ALL_COMMUTATION_BITS_OFF B11000000
 #define HIGH_COMMUTATION_BITS_OFF B11101010
-
 
 Motor::Motor(int poles, int speed_pin) {
   this->poles = poles;
   this->speed_pin = speed_pin;
-
+  
   reset();
-  DDRB |= B111111;  // pins 8-13 as output
-  PORTB &= B11000000; // pins 8-13 LOW
-  pinMode(speed_pin, INPUT);
-
-  // enable interrupts on ports 2-4
-  PCMSK2 = 1<<2 | 1<<3 | 1<<4;
-  PCICR |= 1 << PCIE2;
 }
 
 extern Motor motor;
@@ -65,6 +64,15 @@ SIGNAL(PCINT2_vect) {
 
 void Motor::reset() {
   noInterrupts();
+
+  pinMode(speed_pin, INPUT);
+
+  DDRB |= B111111;  // pins 8-13 as output
+  PORTB &= B11000000; // pins 8-13 LOW
+
+  PCMSK2 = 0; // no phase selected for zero crossing detection
+  PCICR |= 1 << PCIE2;
+
   direction = 1;
   sensing = false;
   phase_shift = 0;
@@ -105,6 +113,7 @@ void Motor::next_commutation() {
     raise_diag();
     commutation = 5;
   }
+  PCMSK2 = zero_crossing_pin[commutation];
   _commutation = commutation_bits[commutation];
 }
 
@@ -263,17 +272,7 @@ void Motor::tick() {
   if (_pwm_bits & 1) {
     PORTB |= _commutation;
   } else {
-    // soft switching, doesn't work (well) with my sensorless circuit b/c 
-    // BEMF on high phase drops to ground and confuses the zero crossing circuitry
-    //
-    // My plan is to bring all three phase comparator outputs to the board and
-    // use pin change interrupts with selective masking to do multiplexing without
-    // external hardware.
-    //
-    //PORTB &= HIGH_COMMUTATION_BITS_OFF; 
-
-    // hard switching, powered phases BEMF will be valid during pwm down
-    PORTB &= ALL_COMMUTATION_BITS_OFF;
+    PORTB &= HIGH_COMMUTATION_BITS_OFF; 
   }
   //drop_diag();
   //raise_diag();
