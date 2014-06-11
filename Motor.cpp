@@ -203,7 +203,7 @@ void Motor::tick() {
     // soft switching
     PORTB &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
     
-    // complementary switching
+    // complementary switching (doesn't work, deadtime is wrong, surges)
     // shift and mask to turn the complementary low transistor on
     //PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
   }
