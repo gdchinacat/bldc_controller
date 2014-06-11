@@ -195,7 +195,7 @@ void Motor::tick() {
   }
   
   if (_pwm_bits & 1) {
-    PORTB = PORTB & ALL_COMMUTATION_BITS_OFF | _commutation; //hardcoded
+    PORTB = (PORTB & ALL_COMMUTATION_BITS_OFF) | _commutation; //hardcoded
   } else {
     //hard switching
     //PORTB &= ALL_COMMUTATION_BITS_OFF;
