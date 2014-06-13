@@ -40,7 +40,6 @@ void loop() {
   motor.start();
   
   int mult = 0;
-  
   unsigned int _delay;
   do {
     _delay = motor.speed_control();
@@ -48,7 +47,7 @@ void loop() {
 
     if (++mult == 20) {
       mult = 0;
-    
+      
       // Speed Control Monitor
       //Serial.print(" desired: "); Serial.print(desired_commutation_period);
       //Serial.print(" period:"); Serial.print(commutation_period); 

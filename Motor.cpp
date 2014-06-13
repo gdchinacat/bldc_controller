@@ -215,12 +215,11 @@ void Motor::commutation_intr() {
   //raise_diag();
   interrupt_count++;
   if (sensing) {
-    // set the next commutation time if it isn't already set
-    if (!_commutation_ticks) { // the first zero crossing in a step is used
-      commutation_period = ticks;
-      _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
-      ticks = 0;
-    }
+    PCMSK2 = 0; //turn off zero crossing interrupts //hardcoded
+    PCIFR |= 0b100; //clear pending interrupt //hardcoded
+    commutation_period = ticks;  // zero-crossing to zero-crossing
+    _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
+    ticks = 0;
   }
 }
 
