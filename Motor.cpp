@@ -195,7 +195,11 @@ void Motor::tick() {
   }
   
   if (_pwm_bits & 1) {
-    PORTB = (PORTB & ALL_COMMUTATION_BITS_OFF) | _commutation; //hardcoded
+    // complementary switching, turn off everything (specifically the low)
+    //PORTB &= ALL_COMMUTATION_BITS_OFF;  //hardcoded
+    //delayMicroseconds(1);               //hardcoded deadtime
+    
+    PORTB |= _commutation;              //hardcoded
   } else {
     //hard switching
     //PORTB &= ALL_COMMUTATION_BITS_OFF;
@@ -205,6 +209,7 @@ void Motor::tick() {
     
     // complementary switching (doesn't work, deadtime is wrong, surges)
     // shift and mask to turn the complementary low transistor on
+    //delayMicroseconds(1); //hardcoded deadtime
     //PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
   }
   //drop_diag();
