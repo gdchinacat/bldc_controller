@@ -195,9 +195,13 @@ void Motor::tick() {
   }
   
   if (_pwm_bits & 1) {
+
+#define COMPLEMENTARY_SWITCHING
+#ifdef COMPLEMENTARY_SWITCHING
     // complementary switching, turn off everything (specifically the low)
-    //PORTB &= ALL_COMMUTATION_BITS_OFF;  //hardcoded
-    //delayMicroseconds(1);               //hardcoded deadtime
+    PORTB &= ALL_COMMUTATION_BITS_OFF;  //hardcoded
+    delayMicroseconds(1);               //hardcoded deadtime
+#endif
     
     PORTB |= _commutation;              //hardcoded
   } else {
@@ -206,11 +210,15 @@ void Motor::tick() {
     
     // soft switching
     PORTB &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
-    
-    // complementary switching (doesn't work, deadtime is wrong, surges)
+
+#ifdef COMPLEMENTARY_SWITCHING
+    // complementary switching
     // shift and mask to turn the complementary low transistor on
-    //delayMicroseconds(1); //hardcoded deadtime
-    //PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
+    // I've seen different literature on complementary switching that
+    // says to invert the high and low.
+    delayMicroseconds(1); //hardcoded deadtime
+    PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
+#endif
   }
   //drop_diag();
   //raise_diag();
@@ -229,6 +237,11 @@ void Motor::commutation_intr() {
 }
 
 unsigned int Motor::speed_control() {
+  
+    if (!sensing) {
+      return 0;
+    }
+    
     // how fast should we go
     int desired_commutation_period = map(analogRead(speed_pin), 0, 1024, 300, 20);  //hardcoded
     
@@ -245,7 +258,7 @@ unsigned int Motor::speed_control() {
       set_power(power_level - 1);
     }
 
-    return sensing ? commutation_period * TIMER_MICROS : 0;
+    return _commutation_period * TIMER_MICROS;
 }
 
 unsigned int Motor::rpm() {
