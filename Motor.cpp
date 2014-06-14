@@ -109,11 +109,12 @@ void Motor::next_commutation() {
   PORTB &= ALL_COMMUTATION_BITS_OFF; //hardcoded
   commutation += direction;
   if (commutation==6) {
-    raise_diag();
     commutation = 0;
   } else if (commutation==255) {
-    raise_diag();
     commutation = 5;
+  }
+  if (commutation==0) {
+    raise_diag();
   }
   PCMSK2 = zero_crossing_pin[commutation];  //start watching for zero crossing on idle phase // hardcoded
   _commutation = commutation_bits[commutation];
@@ -168,7 +169,7 @@ __inline__ void deadtime_delay() {
   // my hunch is clock ticks between the two OUTs is sufficient that this isn't
   // really necessary. It didn't seem to do anything to the warm transistors (which
   // was resolved by not gratuitously turning the transistors off).
-  __asm__("nop\n\t"); //62.5ns deadtime //hardcoded
+  //__asm__("nop\n\t"); //62.5ns deadtime //hardcoded
 }
 
 void Motor::tick() {
@@ -201,29 +202,27 @@ void Motor::tick() {
     _pwm_bits >>= 1;
   }
   
+  register byte portb = PORTB;
   if (_pwm_bits & 1) {
 
 #define COMPLEMENTARY_SWITCHING
 #ifdef COMPLEMENTARY_SWITCHING
 
     // TODO - optimize these bit operations to precalculate as much as possible
-    // TODO - decompile and see if PORTB is read multiple times...if so, load it
-    //        into a register and update PORTB from manipulations to the register
-    //        to reduce reads
     // complementary switching, turn off everything that's not in the commutation.
     // This will turn off the complementary low without effecting the current low
     // or high. However, it will not turn anything on.
-    PORTB &= (ALL_COMMUTATION_BITS_OFF | _commutation);  //hardcoded
+    PORTB = portb &= (ALL_COMMUTATION_BITS_OFF | _commutation);  //hardcoded
     deadtime_delay();
 #endif
     
-    PORTB |= _commutation;              //hardcoded
+    PORTB = portb |= _commutation;              //hardcoded
   } else {
     //hard switching
     //PORTB &= ALL_COMMUTATION_BITS_OFF;
     
     // soft switching
-    PORTB &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
+    PORTB = portb &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
 
 #ifdef COMPLEMENTARY_SWITCHING
     // complementary switching/unipolar switching
@@ -231,7 +230,7 @@ void Motor::tick() {
     // I've seen different literature on complementary switching that
     // says to invert the high and low.
     deadtime_delay();
-    PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
+    PORTB = portb |= ((_commutation << 1) & HIGH_COMMUTATION_BITS_OFF);
 #endif
   }
   //drop_diag();
@@ -244,7 +243,7 @@ void Motor::commutation_intr() {
   if (sensing) {
     PCMSK2 = 0; //turn off zero crossing interrupts //hardcoded
     PCIFR |= 0b100; //clear pending interrupt //hardcoded
-    commutation_period = ticks;  // zero-crossing to zero-crossing
+    commutation_period = ((commutation_period * 5) + ticks) / 6;  // zero-crossing to zero-crossing
     _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
     ticks = 0;
   }
@@ -267,7 +266,7 @@ unsigned int Motor::speed_control() {
     //adjust power level accordingly  //hardcoded
     int delta = _commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 1);
+      set_power(power_level + 8);
     } else if (delta < 0) {
       set_power(power_level - 1);
     }
