@@ -165,6 +165,9 @@ void Motor::start() {
 }
 
 __inline__ void deadtime_delay() {
+  // my hunch is clock ticks between the two OUTs is sufficient that this isn't
+  // really necessary. It didn't seem to do anything to the warm transistors (which
+  // was resolved by not gratuitously turning the transistors off).
   __asm__("nop\n\t"); //62.5ns deadtime //hardcoded
 }
 
@@ -203,6 +206,10 @@ void Motor::tick() {
 #define COMPLEMENTARY_SWITCHING
 #ifdef COMPLEMENTARY_SWITCHING
 
+    // TODO - optimize these bit operations to precalculate as much as possible
+    // TODO - decompile and see if PORTB is read multiple times...if so, load it
+    //        into a register and update PORTB from manipulations to the register
+    //        to reduce reads
     // complementary switching, turn off everything that's not in the commutation.
     // This will turn off the complementary low without effecting the current low
     // or high. However, it will not turn anything on.
