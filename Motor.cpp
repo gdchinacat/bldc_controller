@@ -164,6 +164,10 @@ void Motor::start() {
   }
 }
 
+__inline__ void deadtime_delay() {
+  __asm__("nop\n\t"); //62.5ns deadtime //hardcoded
+}
+
 void Motor::tick() {
   drop_diag();
   ticks++;
@@ -200,7 +204,7 @@ void Motor::tick() {
 #ifdef COMPLEMENTARY_SWITCHING
     // complementary switching, turn off everything (specifically the low)
     PORTB &= ALL_COMMUTATION_BITS_OFF;  //hardcoded
-    delayMicroseconds(1);               //hardcoded deadtime
+    deadtime_delay();
 #endif
     
     PORTB |= _commutation;              //hardcoded
@@ -216,7 +220,7 @@ void Motor::tick() {
     // shift and mask to turn the complementary low transistor on
     // I've seen different literature on complementary switching that
     // says to invert the high and low.
-    delayMicroseconds(1); //hardcoded deadtime
+    deadtime_delay();
     PORTB |= (_commutation << 1) & HIGH_COMMUTATION_BITS_OFF;
 #endif
   }
