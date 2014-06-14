@@ -243,7 +243,7 @@ void Motor::commutation_intr() {
   if (sensing) {
     PCMSK2 = 0; //turn off zero crossing interrupts //hardcoded
     PCIFR |= 0b100; //clear pending interrupt //hardcoded
-    commutation_period = ((commutation_period * 5) + ticks) / 6;  // zero-crossing to zero-crossing
+    commutation_period = ((commutation_period * 24) + ticks) / 25;  // zero-crossing to zero-crossing
     _commutation_ticks = (ticks >> 1) + phase_shift; // zero crossing is 1/2 way through step
     ticks = 0;
   }
@@ -266,12 +266,12 @@ unsigned int Motor::speed_control() {
     //adjust power level accordingly  //hardcoded
     int delta = _commutation_period - desired_commutation_period;
     if (delta > 0) {
-      set_power(power_level + 8);
+      set_power(power_level + 1);
     } else if (delta < 0) {
       set_power(power_level - 1);
     }
 
-    return _commutation_period * TIMER_MICROS;
+    return 0; //oversampling seems to work better
 }
 
 unsigned int Motor::rpm() {

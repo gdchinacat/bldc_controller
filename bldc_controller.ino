@@ -45,7 +45,7 @@ void loop() {
     _delay = motor.speed_control();
     if (_delay > 10000) {
       delay(_delay / 1000);
-    } else {
+    } else if (_delay > 0) {
       delayMicroseconds(_delay);
     }
 
@@ -67,7 +67,7 @@ void loop() {
       //Serial.println();
 
     }
-  } while (_delay > 0);
+  } while (_delay >= 0);
 }
 
 
