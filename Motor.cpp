@@ -202,8 +202,11 @@ void Motor::tick() {
 
 #define COMPLEMENTARY_SWITCHING
 #ifdef COMPLEMENTARY_SWITCHING
-    // complementary switching, turn off everything (specifically the low)
-    PORTB &= ALL_COMMUTATION_BITS_OFF;  //hardcoded
+
+    // complementary switching, turn off everything that's not in the commutation.
+    // This will turn off the complementary low without effecting the current low
+    // or high. However, it will not turn anything on.
+    PORTB &= (ALL_COMMUTATION_BITS_OFF | _commutation);  //hardcoded
     deadtime_delay();
 #endif
     
@@ -216,7 +219,7 @@ void Motor::tick() {
     PORTB &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
 
 #ifdef COMPLEMENTARY_SWITCHING
-    // complementary switching
+    // complementary switching/unipolar switching
     // shift and mask to turn the complementary low transistor on
     // I've seen different literature on complementary switching that
     // says to invert the high and low.
