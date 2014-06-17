@@ -205,7 +205,7 @@ void Motor::tick() {
   register byte portb = PORTB;
   if (_pwm_bits & 1) {
 
-#define COMPLEMENTARY_SWITCHING
+//#define COMPLEMENTARY_SWITCHING
 #ifdef COMPLEMENTARY_SWITCHING
 
     // TODO - optimize these bit operations to precalculate as much as possible
@@ -230,7 +230,7 @@ void Motor::tick() {
     // I've seen different literature on complementary switching that
     // says to invert the high and low.
     deadtime_delay();
-    PORTB = portb |= ((_commutation << 1) & HIGH_COMMUTATION_BITS_OFF);
+    PORTB = portb |= ((_commutation & 0b10101) << 1); //hardcoded
 #endif
   }
   //drop_diag();
