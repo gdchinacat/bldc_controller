@@ -271,7 +271,7 @@ unsigned int Motor::speed_control() {
       set_power(power_level - 1);
     }
 
-    return 0; //oversampling seems to work better
+    return _commutation_period;
 }
 
 unsigned int Motor::rpm() {
