@@ -4,10 +4,12 @@
 
 #include "Arduino.h"
 
-// Use the 256x prescaler for a 62.5khz frequency
-#define PRESCALE 1<<CS12;
-//LH - hard coded since 4 byte floats are dropping the precision
-#define TIMER_MICROS 16
+#ifndef sbi
+  #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
+#ifndef cbi
+  #define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
+#endif
 
 // diag_pin is the pin used for diagnostic signals
 #define diag_pin A0

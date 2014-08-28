@@ -4,6 +4,19 @@
 
 #include "Arduino.h"
 
+// lots of hard coded timer stuff here....
+#define disable_timer1_overflow(); (TIMSK1 &= ~_BV(TOIE1));
+#define enable_timer1_overflow(); (TIMSK1 |= _BV(TOIE1));
+
+#define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));
+#define enable_timer1_compb();  (TIMSK1 |= _BV(OCIE1B));
+
+#define disable_timer2_overflow(); (TIMSK2 &= ~_BV(TOIE2));
+#define enable_timer2_overflow(); (TIMSK2 |= _BV(TOIE2));
+
+#define disable_timer2_compb();  (TIMSK2 &= ~_BV(OCIE2B));
+#define enable_timer2_compb();  (TIMSK2 |= _BV(OCIE2B));
+
 class Motor {
   
   /*
@@ -18,11 +31,13 @@ class Motor {
     void start();
     unsigned int rpm();
 
-    void tick(); // called once per timer tick
+    void next_commutation(); // advance to the next commutation
+    void pwm_on();  // called when pwm should be on 
+    void pwm_off(); // called when pwm should be off
     unsigned int speed_control();
     void commutation_intr();  // called from global
     
-  private:
+  //private:
     int poles;       // number of pole pairs
     int speed_pin;   // pin the speed potentiometer is connected to
     byte direction;
@@ -31,22 +46,18 @@ class Motor {
 
     // power
     byte power_level;       // the current power level
-    const byte* pwm_level;  // the current power level bitmask
-    byte _pwm_bits;         // pwm bitmask, shifted once per tick
-    byte pwm_ticks;         // tracks when it's time to pull a new set of pwm_bits in
     
     // commutation
     int interrupt_count;              // # of interrupts since last reset()
     int phase_shift;                  // # of ticks to shift commutation by
-    unsigned int commutation_period;  // last commutation period, in ticks
+    unsigned int commutation_period;  // last commutation period, in timer1 ticks
     byte commutation;                 // current commutation step
     byte _commutation;                // the current commutation power bits
-    unsigned int ticks;               // number of ticks since last interrupt
-    unsigned int _commutation_ticks;  // number of ticks when next next commutation should occur
     
-    void next_commutation();  // advance to the next commutation step at the next timer tick
     void set_power(byte);     // set the power level
     void reset();
+    void initialize_timers();
+   
 };
 
 #endif
