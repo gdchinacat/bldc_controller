@@ -11,12 +11,6 @@
 #define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));
 #define enable_timer1_compb();  (TIMSK1 |= _BV(OCIE1B));
 
-#define disable_timer2_overflow(); (TIMSK2 &= ~_BV(TOIE2));
-#define enable_timer2_overflow(); (TIMSK2 |= _BV(TOIE2));
-
-#define disable_timer2_compb();  (TIMSK2 &= ~_BV(OCIE2B));
-#define enable_timer2_compb();  (TIMSK2 |= _BV(OCIE2B));
-
 class Motor {
   
   /*

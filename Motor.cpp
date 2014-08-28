@@ -1,6 +1,9 @@
 #include "Arduino.h"
 #include "bldc_controller.h"
 #include "Motor.h"
+extern "C" {
+#include "PWM.h"
+}
 
 /*
  pins in PORTD are used [8,9], [10,11], [12,13], first is high side, second is low side
@@ -39,18 +42,9 @@ ISR(PCINT2_vect) {
 }
 
 ISR(TIMER1_OVF_vect) {
-  motor.next_commutation();  
+  motor.next_commutation();
 }
 
-ISR(TIMER2_COMPB_vect) {
-  motor.pwm_off();
-  drop_diag();
-}
-
-ISR(TIMER2_OVF_vect) {
-  //raise_diag();
-  motor.pwm_on();
-}
 
 void Motor::initialize_timers() {
   // Timer1 is used for commutation timing
@@ -65,12 +59,6 @@ void Motor::initialize_timers() {
   TCCR1B = _BV(CS10);        // 1x prescale, high resolution provides better commutation accuracy (I think...)
   disable_timer1_overflow();
 
-  // Timer 2 is used for PWM interrupt generation.
-  TCCR2A = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);        // connect pwm, fast pwm
-  TCCR2B = _BV(CS21);                        // 8x prescaler
-  disable_timer2_overflow();
-  disable_timer2_compb();
-  pinMode(3, OUTPUT); //if you want to see the pwm on a pin, if not, you can probably use it
 }
 
 void Motor::reset() {
@@ -95,6 +83,8 @@ void Motor::reset() {
   commutation = 5;
 
   initialize_timers();
+
+  pwm_initialize(0);
   
   interrupts();
 }
@@ -190,9 +180,6 @@ void Motor:: pwm_off() {
 
   //drop_diag();
 
-  disable_timer2_compb();  
-  enable_timer2_overflow();
-
   register byte portb = PORTB;
 
   //hard switching
@@ -223,7 +210,7 @@ void Motor::commutation_intr() {
     commutation_period = (TCNT1 << 1);
 
     TCNT1 = 0xFFFF - (TCNT1 << 1) + phase_shift;
-    enable_timer1_overflow(); // next_commutation(
+    enable_timer1_overflow(); // next_commutation
   }
 }
 
@@ -250,7 +237,6 @@ void Motor::next_commutation() {
   // precalculate per-commutation values for the pwm interrupts
   _commutation = commutation_bits[commutation];
 
-  pwm_on();
 }
 
 unsigned int Motor::speed_control() {
