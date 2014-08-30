@@ -4,6 +4,11 @@
 
 #include "Arduino.h"
 
+//#define COMPLEMENTARY_SWITCHING
+#ifdef COMPLEMENTARY_SWITCHING
+#error This is not yet implemented to use the pwm module, extend it to support off then on semantics
+#endif
+
 // lots of hard coded timer stuff here....
 #define disable_timer1_overflow(); (TIMSK1 &= ~_BV(TOIE1));
 #define enable_timer1_overflow(); (TIMSK1 |= _BV(TOIE1));
@@ -38,9 +43,6 @@ class Motor {
     
     boolean sensing; // is commutation driven by interrupts (rather than timing)
 
-    // power
-    byte power_level;       // the current power level
-    
     // commutation
     int interrupt_count;              // # of interrupts since last reset()
     int phase_shift;                  // # of ticks to shift commutation by
@@ -48,7 +50,6 @@ class Motor {
     byte commutation;                 // current commutation step
     byte _commutation;                // the current commutation power bits
     
-    void set_power(byte);     // set the power level
     void reset();
     void initialize_timers();
    

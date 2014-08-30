@@ -1,10 +1,9 @@
 
 //
 // This is all hardcoded for now -- if you change one thing you probably need to change others as well
-//
 
 // The port that PWM is controlling (PORTx)
-#define PWM_PORT PORTD
+#define PWM_PORT PORTB
 
 //PWM_LEVELS defines the number of power levels, and indirectly, the period
 //of the PWM. It can be used to trade power resolution with pwm frequency.

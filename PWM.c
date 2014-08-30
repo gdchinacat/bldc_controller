@@ -58,6 +58,7 @@ void pwm_set_level(byte level) {
   
   level = constrain(level, 0, PWM_LEVELS - 1);
  
+  noInterrupts();
   if (level == 0) {
     //this looks weird on the oscilloscope since we ignore the overflow
     //we don't reset the counter to 256-PWM_LEVELS and the diagnostic 
@@ -77,5 +78,7 @@ void pwm_set_level(byte level) {
     enable_timer2_compb();
   }
   OCR2B = level + (256 - PWM_LEVELS);
+  interrupts();
 }
+
 

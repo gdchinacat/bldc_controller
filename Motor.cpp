@@ -24,6 +24,7 @@ const byte zero_crossing_pin[6] = {1<<6, //hardcoded
 
 #define  ALL_COMMUTATION_BITS_OFF B11000000
 #define HIGH_COMMUTATION_BITS_OFF B11101010
+#define HIGH_COMMUTATION_BITS     B00010101
 
 Motor::Motor(int poles, int speed_pin) {
   this->poles = poles;
@@ -45,10 +46,8 @@ ISR(TIMER1_OVF_vect) {
   motor.next_commutation();
 }
 
-
 void Motor::initialize_timers() {
   // Timer1 is used for commutation timing
-  // Timer2 is used for fast pwm
   
   // Timer 1 is used for commutation timing. It is reset when commutation is advanced and used to time the
   // first half of the commutation step as detected by the zero crossing detector. It then is used to count
@@ -56,7 +55,7 @@ void Motor::initialize_timers() {
   // since that requires the pin be wired for PWM which conflicts with its use for output.
   TCCR1A = 0;                // normal mode
   TCCR1B = 0;                // disconnected (connected later)
-  TCCR1B = _BV(CS10);        // 1x prescale, high resolution provides better commutation accuracy (I think...)
+  TCCR1B = _BV(CS11);        // 8x prescale, high resolution provides better commutation accuracy (I think...), but too high and you overlow.
   disable_timer1_overflow();
 
 }
@@ -89,11 +88,6 @@ void Motor::reset() {
   interrupts();
 }
 
-void Motor::set_power(byte _power_level) {
-  OCR2B = power_level = constrain(_power_level, 0, 255);
-}
-
-
 /* Ramp up table of (power_level, commutation_period, delay) tuples */
 const unsigned int RAMP_UP[][2] = {{3906, 25},  //hardcoded
                           {3472, 25},
@@ -117,20 +111,21 @@ void Motor::start() {
   reset();
 
   sensing = true;
+  
   TCNT1 = 0xFFFF;
   enable_timer1_overflow(); // next commutation on next timer1 tick
     
   while (!sensing) {
-    set_power(0);
+    pwm_set_level(0);
     reset();
 
     // align
-    set_power(255); //hardcoded
+    pwm_set_level(PWM_LEVELS);
     delay(2000);
     
     // ramp up
     for (const unsigned int *c = RAMP_UP[0]; c[0] && !sensing; c+=2) {
-      int period = c[0];
+      //int period = c[0];
       int _delay = c[1];
       //Serial.print("period: "); Serial.print(period); Serial.print(" delay: "); Serial.print(_delay); Serial.println();
       noInterrupts();
@@ -141,6 +136,8 @@ void Motor::start() {
     
     // Ooops, got to the end of startup and not sensing...start over
   }
+  
+  pwm_start();
 }
 
 __inline__ void deadtime_delay() {
@@ -150,17 +147,54 @@ __inline__ void deadtime_delay() {
   //__asm__("nop\n\t"); //62.5ns deadtime //hardcoded
 }
 
-//#define COMPLEMENTARY_SWITCHING
-void Motor::pwm_on() {
+void Motor::commutation_intr() {
+  //raise_diag();
+  interrupt_count++;
+  if (sensing) {
+    PCMSK2 = 0; //turn off zero crossing interrupts //hardcoded
+    PCIFR |= 0b100; //clear pending interrupt //hardcoded
 
-  //drop_diag();
+    // Timer1 kept counting since it was reset and triggered last commutation
+    unsigned int tcnt1 = TCNT1;
+    TCNT1 = 0xFFFF - tcnt1 + phase_shift;
+    commutation_period = tcnt1 << 1;
 
-  disable_timer2_overflow();
-  if (power_level < 255) {
-    enable_timer2_compb(); // comment out to disable pwm by ignoring the pwm off signal
+    enable_timer1_overflow(); // next_commutation
   }
+  //drop_diag();
+}
+
+void Motor::next_commutation() {
+  //raise_diag();
+
+  // stop the pwm bit flipping
+  pwm_stop();
 
   register byte portb = PORTB;
+
+  // Turn off all the bits to avoid short circuit while the 
+  // high side is turning on and the low side is turning off.
+  PORTB = portb &= ALL_COMMUTATION_BITS_OFF; //hardcoded
+
+  // advance the commutation
+  commutation += direction;
+  if (commutation==6) {
+    commutation = 0;
+  } else if (commutation==255) {
+    commutation = 5;
+  }
+  if (commutation==0) {
+    raise_diag();
+  }  
+  // precalculate per-commutation values for the pwm interrupts
+  _commutation = commutation_bits[commutation];
+
+  // start timer for first half of commutation until zero crossing is detected
+  TCNT1 = 0;
+
+  //start watching for zero crossing on idle phase // hardcoded
+  PCMSK2 = zero_crossing_pin[commutation];
+  disable_timer1_overflow();
 
 #ifdef COMPLEMENTARY_SWITCHING
 
@@ -174,19 +208,11 @@ void Motor::pwm_on() {
   
   PORTB = portb |= _commutation;              //hardcoded
 
-}
-
-void Motor:: pwm_off() {
-
-  //drop_diag();
-
-  register byte portb = PORTB;
-
   //hard switching
-  //PORTB &= ALL_COMMUTATION_BITS_OFF;
+  //pwm_set_mask(_commutation);
   
   // soft switching
-  PORTB = portb &= HIGH_COMMUTATION_BITS_OFF; //hardcoded
+  pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS);
 
 #ifdef COMPLEMENTARY_SWITCHING
   // complementary switching/unipolar switching
@@ -197,46 +223,9 @@ void Motor:: pwm_off() {
   PORTB = portb |= ((_commutation & 0b10101) << 1); //hardcoded
 #endif
 
-}
+  pwm_start();
 
-void Motor::commutation_intr() {
-  //raise_diag();
-  interrupt_count++;
-  if (sensing) {
-    PCMSK2 = 0; //turn off zero crossing interrupts //hardcoded
-    PCIFR |= 0b100; //clear pending interrupt //hardcoded
-
-    // Timer1 kept counting since it was reset and triggered last commutation
-    commutation_period = (TCNT1 << 1);
-
-    TCNT1 = 0xFFFF - (TCNT1 << 1) + phase_shift;
-    enable_timer1_overflow(); // next_commutation
-  }
-}
-
-void Motor::next_commutation() {
-  //raise_diag();
-
-  // Turn off all the bits to avoid short circuit while the 
-  // high side is turning on and the low side is turning off.
-  PORTB &= ALL_COMMUTATION_BITS_OFF; //hardcoded
-  commutation += direction;
-  if (commutation==6) {
-    commutation = 0;
-  } else if (commutation==255) {
-    commutation = 5;
-  }
-  if (commutation==0) {
-    raise_diag();
-  }
-  
-  TCNT1 = 0; // start timer for first half of commutation until zero crossing is detected
-  PCMSK2 = zero_crossing_pin[commutation];  //start watching for zero crossing on idle phase // hardcoded
-  disable_timer1_overflow();
-
-  // precalculate per-commutation values for the pwm interrupts
-  _commutation = commutation_bits[commutation];
-
+  drop_diag();
 }
 
 unsigned int Motor::speed_control() {
@@ -245,13 +234,18 @@ unsigned int Motor::speed_control() {
     return 0;
   }
   
-  set_power(map(analogRead(speed_pin), 0, 1024, 300, -50));
-  delay(150);
-  return 0;
+//  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
+//  delay(150);
+//  return 0;
   
   // how fast should we go
-  int desired_commutation_period = map(analogRead(speed_pin), 800, 1024, 10000, 50);  //hardcoded, timer1 prescaling sensitive
+  int input = analogRead(speed_pin);
+  int desired_commutation_period = map(input, 0, 1024, 5000, 50);  //hardcoded, timer1 prescaling sensitive
 
+//  Serial.print("input: "); Serial.print(input);
+//  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
+//  Serial.println();
+  
   // how fast are we going 
   noInterrupts();
   int _commutation_period = commutation_period;
@@ -260,9 +254,9 @@ unsigned int Motor::speed_control() {
   // adjust power level accordingly  //hardcoded
   int delta = _commutation_period - desired_commutation_period;
   if (delta > 0) {
-    set_power(power_level + 1);
+    pwm_set_level(pwm_level + 1);
   } else if (delta < -0) {
-    set_power(power_level - 1);
+    pwm_set_level(pwm_level - 1);
   }
   return _commutation_period * 8;
 }
