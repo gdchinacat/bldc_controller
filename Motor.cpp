@@ -5,37 +5,76 @@ extern "C" {
 #include "PWM.h"
 }
 
-/*
- pins in PORTD are used [8,9], [10,11], [12,13], first is high side, second is low side
+/** the motor */
+Motor motor(4, A5);
+
+#define MOTOR_PORT PORTB
+#define MOTOR_DDR DDRB
+
+#define A  _BV(PINB0)
+#define A_ _BV(PINB1)
+#define B  _BV(PINB2)
+#define B_ _BV(PINB3)
+#define C  _BV(PINB4)
+#define C_ _BV(PINB5)
+
+// Since the commutation masks are in a vector there is no need for these
+// to be rigidly defined...initialize could take the ports. However, since
+// they are all on the same port and we want *that* statically defined for
+// runtime performance reasons, I don't see any benefit to not doing this.
+#define LOW_COMMUTATION_BITS   (A_ | B_ | C_)
+#define HIGH_COMMUTATION_BITS  (A  | B  | C )
+
+/* The commutation sequence */
+const byte commutation_bits[6] = {A | C_,
+                                  A | B_,
+                                  C | B_,
+                                  C | A_,
+                                  B | A_,
+                                  B | C_};
+
+#define ALL_COMMUTATION_BITS      (LOW_COMMUTATION_BITS | HIGH_COMMUTATION_BITS)
+#define  ALL_COMMUTATION_BITS_OFF (~ALL_COMMUTATION_BITS)
+#define HIGH_COMMUTATION_BITS_OFF (~HIGH_COMMUTATION_BITS)
+
+// the pin change mask the zero crossing signals attached to
+#define MOTOR_ZC_MSK PCMSK2
+#define MOTOR_ZC_PC _BV(2)
+
+#define ZC_PINA _BV(PIND5)
+#define ZC_PINB _BV(PIND6)
+#define ZC_PINC _BV(PIND7)
+
+#define ALL_ZC_PINS (ZC_PINA | ZC_PINB | ZC_PINC)
+
+const byte zero_crossing_pin[6] = {ZC_PINB,
+                                   ZC_PINC,
+                                   ZC_PINA,
+                                   ZC_PINB,
+                                   ZC_PINC,
+                                   ZC_PINA};
+
+// clear the zero-crossing detection interrupts
+#define disable_zero_crossing_detection() {\
+  MOTOR_ZC_MSK &= ~ALL_ZC_PINS; \
+  PCIFR |= MOTOR_ZC_PC; \
+}
+
+#define zc_initialize() {\
+  disable_zero_crossing_detection(); \
+  PCICR |= MOTOR_ZC_PC; \
+}
+                                 
+/**
+ * poles - number of poles, really only used for rpm()
+ * speed_pin - the analog pin to read desired speed from
  */
-const byte commutation_bits[6] = {B100001, // hardcoded
-                                  B001001,
-                                  B011000,
-                                  B010010,
-                                  B000110,
-                                  B100100};
-                                  
-const byte zero_crossing_pin[6] = {1<<6, //hardcoded
-                                   1<<7,
-                                   1<<5,
-                                   1<<6,
-                                   1<<7,
-                                   1<<5};
-
-#define  ALL_COMMUTATION_BITS_OFF B11000000
-#define HIGH_COMMUTATION_BITS_OFF B11101010
-#define HIGH_COMMUTATION_BITS     B00010101
-#define LOW_COMMUTATION_BITS      B00101010
-
 Motor::Motor(int poles, int speed_pin) {
   this->poles = poles;
   this->speed_pin = speed_pin;
   
   reset();
 }
-
-/** the motor */
-Motor motor(4, A5);
 
 // Pin Change Interrupt 2 is used for zero crossing detection
 //   The channel to watch is enabled during next_commutation()
@@ -67,11 +106,10 @@ void Motor::reset() {
   /* hardcoded */
   pinMode(speed_pin, INPUT);
 
-  DDRB |= B111111;  // pins 8-13 as output
-  PORTB &= B11000000; // pins 8-13 LOW
+  MOTOR_DDR |= ALL_COMMUTATION_BITS; // configure commutation pins as output
+  MOTOR_PORT &= ALL_COMMUTATION_BITS_OFF;
 
-  PCMSK2 = 0; // no phase selected for zero crossing detection
-  PCICR |= 1 << PCIE2;
+  zc_initialize();
   /* end hardcoded */
 
   direction = 1;
@@ -79,7 +117,6 @@ void Motor::reset() {
   phase_shift = 0;
   
   interrupt_count = 0;
-  commutation = commutation_bits[0];
   commutation = 5;
 
   initialize_timers();
@@ -91,21 +128,6 @@ void Motor::reset() {
 
 /* Ramp up table of (power_level, commutation_period, delay) tuples */
 const unsigned int RAMP_UP[][2] = {{3906, 25},  //hardcoded
-                          {3472, 25},
-                          {3125, 25},
-                          {2840, 25},
-                          {2604, 25},
-                          {2403, 25},
-                          {2232, 25},
-                          {2083, 25},
-                          {1953, 25},
-                          {1838, 25},
-                          {1736, 25},
-                          {1644, 25},
-                          {1562, 25},
-                          {1488, 25},
-                          {1420, 25},
-                          {1358, 25},
                           {0, 0}};
 
 void Motor::start() {
@@ -148,12 +170,12 @@ __inline__ void deadtime_delay() {
   //__asm__("nop\n\t"); //62.5ns deadtime //hardcoded
 }
 
+
 void Motor::commutation_intr() {
   //raise_diag();
   interrupt_count++;
   if (sensing) {
-    PCMSK2 = 0; //turn off zero crossing interrupts //hardcoded
-    PCIFR |= 0b100; //clear pending interrupt //hardcoded
+    disable_zero_crossing_detection();
 
     // Timer1 kept counting since it was reset and triggered last commutation
     unsigned int tcnt1 = TCNT1;
@@ -174,11 +196,11 @@ void Motor::next_commutation() {
   // stop the pwm bit flipping
   pwm_stop();
 
-  register byte portb = PORTB;
+  register byte port = MOTOR_PORT;
 
   // Turn off all the bits to avoid short circuit while the 
   // high side is turning on and the low side is turning off.
-  PORTB = portb &= ALL_COMMUTATION_BITS_OFF; //hardcoded
+  MOTOR_PORT = port &= ALL_COMMUTATION_BITS_OFF; //hardcoded
 
   // advance the commutation
   commutation += direction;
@@ -197,7 +219,7 @@ void Motor::next_commutation() {
   TCNT1 = 0;
 
   //start watching for zero crossing on idle phase // hardcoded
-  PCMSK2 = zero_crossing_pin[commutation];
+  MOTOR_ZC_MSK = zero_crossing_pin[commutation];
   disable_timer1_overflow();
 
 #ifdef COMPLEMENTARY_SWITCHING
@@ -206,11 +228,11 @@ void Motor::next_commutation() {
   // complementary switching, turn off everything that's not in the commutation.
   // This will turn off the complementary low without effecting the current low
   // or high. However, it will not turn anything on.
-  PORTB = portb &= (ALL_COMMUTATION_BITS_OFF | _commutation);  //hardcoded
+  MOTOR_PORT = port &= (ALL_COMMUTATION_BITS_OFF | _commutation);  //hardcoded
   deadtime_delay();
 #endif
   
-  PORTB = portb |= _commutation;              //hardcoded
+  MOTOR_PORT = port |= _commutation;              //hardcoded
 
   //hard switching (scheme 1)
   pwm_set_mask(_commutation);
@@ -225,7 +247,7 @@ void Motor::next_commutation() {
   // I've seen different literature on complementary switching that
   // says to invert the high and low.
   deadtime_delay();
-  PORTB = portb |= ((_commutation & 0b10101) << 1); //hardcoded
+  MOTOR_PORT = port |= ((_commutation & 0b10101) << 1); //hardcoded
 #endif
 
   pwm_start();

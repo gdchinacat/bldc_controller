@@ -14,10 +14,9 @@ void setup() {
 
   pinMode(diag_pin, OUTPUT);
   
-  
   //Serial.begin(115200);
   //Serial.setTimeout(5);
-
+  
   DDRB |= PINS;
 
 }
