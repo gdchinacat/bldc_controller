@@ -25,6 +25,7 @@ const byte zero_crossing_pin[6] = {1<<6, //hardcoded
 #define  ALL_COMMUTATION_BITS_OFF B11000000
 #define HIGH_COMMUTATION_BITS_OFF B11101010
 #define HIGH_COMMUTATION_BITS     B00010101
+#define LOW_COMMUTATION_BITS      B00101010
 
 Motor::Motor(int poles, int speed_pin) {
   this->poles = poles;
@@ -157,7 +158,10 @@ void Motor::commutation_intr() {
     // Timer1 kept counting since it was reset and triggered last commutation
     unsigned int tcnt1 = TCNT1;
     TCNT1 = 0xFFFF - tcnt1 + phase_shift;
-    commutation_period = tcnt1 << 1;
+
+    if (commutation & 1) {
+      commutation_period = tcnt1 << 1;
+    }
 
     enable_timer1_overflow(); // next_commutation
   }
@@ -208,11 +212,12 @@ void Motor::next_commutation() {
   
   PORTB = portb |= _commutation;              //hardcoded
 
-  //hard switching
-  //pwm_set_mask(_commutation);
+  //hard switching (scheme 1)
+  pwm_set_mask(_commutation);
   
-  // soft switching
-  pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS);
+  // soft switching (scheme 0) 
+  //pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS);
+  //pwm_set_mask(_commutation & LOW_COMMUTATION_BITS);
 
 #ifdef COMPLEMENTARY_SWITCHING
   // complementary switching/unipolar switching
@@ -240,7 +245,7 @@ unsigned int Motor::speed_control() {
   
   // how fast should we go
   int input = analogRead(speed_pin);
-  int desired_commutation_period = map(input, 0, 1024, 5000, 50);  //hardcoded, timer1 prescaling sensitive
+  int desired_commutation_period = map(input, 0, 1024, 5000, 2750);  //hardcoded, timer1 prescaling sensitive
 
 //  Serial.print("input: "); Serial.print(input);
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
@@ -255,10 +260,10 @@ unsigned int Motor::speed_control() {
   int delta = _commutation_period - desired_commutation_period;
   if (delta > 0) {
     pwm_set_level(pwm_level + 1);
-  } else if (delta < -0) {
+  } else if (delta < 0) {
     pwm_set_level(pwm_level - 1);
   }
-  return _commutation_period * 8;
+  return _commutation_period; // not exactly sure what this means, need to work out the math
 }
 
 unsigned int Motor::rpm() {
