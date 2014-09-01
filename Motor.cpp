@@ -26,12 +26,12 @@ Motor motor(4, A5);
 #define HIGH_COMMUTATION_BITS  (A  | B  | C )
 
 /* The commutation sequence */
-const byte commutation_bits[6] = {A | C_,
-                                  A | B_,
-                                  C | B_,
-                                  C | A_,
-                                  B | A_,
-                                  B | C_};
+const byte commutation_bits[6] = {A | C_,  // short (long)
+                                  A | B_,  // long
+                                  C | B_,  // short
+                                  C | A_,  // long (long)
+                                  B | A_,  // short
+                                  B | C_}; // long
 
 #define ALL_COMMUTATION_BITS      (LOW_COMMUTATION_BITS | HIGH_COMMUTATION_BITS)
 #define  ALL_COMMUTATION_BITS_OFF (~ALL_COMMUTATION_BITS)
@@ -175,13 +175,15 @@ void Motor::commutation_intr() {
   if (sensing) {
     disable_zero_crossing_detection();
 
-    // Timer1 kept counting since it was reset and triggered last commutation
     unsigned int tcnt1 = TCNT1;
-    TCNT1 = 0xFFFF - tcnt1 + phase_shift;
 
     if (commutation & 1) {
       commutation_period = tcnt1 << 1;
     }
+
+    // Timer1 kept counting since it was reset and triggered last commutation
+    // todo don't reset tcnt since it can't be shared between motors, use compX instead
+    TCNT1 = 0xFFFF - tcnt1 + phase_shift;
 
     enable_timer1_overflow(); // next_commutation
   }
@@ -198,11 +200,9 @@ void Motor::next_commutation() {
 
   register byte port = MOTOR_PORT;
 
-  // Turn off all the bits to avoid short circuit while the 
-  // high side is turning on and the low side is turning off.
-  MOTOR_PORT = port &= ALL_COMMUTATION_BITS_OFF; //hardcoded
-
-  // advance the commutation
+//////////////////////////////////////////////////////////////
+// advance the commutation
+//////////////////////////////////////////////////////////////
   commutation += direction;
   if (commutation==6) {
     commutation = 0;
@@ -218,19 +218,21 @@ void Motor::next_commutation() {
   TCNT1 = 0; // todo - can't reset timer counter and have 2 motors share it, use compX instead
 
   //start watching for zero crossing on idle phase // hardcoded
-  MOTOR_ZC_MSK = zero_crossing_pin[commutation];
+  MOTOR_ZC_MSK |= zero_crossing_pin[commutation];
 
-#ifdef COMPLEMENTARY_SWITCHING
 
-  // TODO - optimize these bit operations to precalculate as much as possible
-  // complementary switching, turn off everything that's not in the commutation.
-  // This will turn off the complementary low without effecting the current low
-  // or high. However, it will not turn anything on.
-  MOTOR_PORT = port &= (ALL_COMMUTATION_BITS_OFF | _commutation);  //hardcoded
+//////////////////////////////////////////////////////////////
+// apply new commutation
+//////////////////////////////////////////////////////////////
+
+  // Turn off everything that isn't in the new commutation 
+  MOTOR_PORT = port &= (ALL_COMMUTATION_BITS_OFF | _commutation);
   deadtime_delay();
-#endif
-  
-  MOTOR_PORT = port |= _commutation;              //hardcoded
+  MOTOR_PORT = port |= _commutation;
+
+//////////////////////////////////////////////////////////////
+// Set up PWM
+//////////////////////////////////////////////////////////////
 
   //hard switching (scheme 1)
   pwm_set_mask(_commutation);
