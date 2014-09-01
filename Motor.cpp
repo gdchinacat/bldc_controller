@@ -11,6 +11,10 @@ Motor motor(4, A5);
 #define MOTOR_PORT PORTB
 #define MOTOR_DDR DDRB
 
+// Since the commutation masks are in a vector there is no need for these
+// to be rigidly defined...initialize could take the ports. However, since
+// they are all on the same port and we want *that* statically defined for
+// runtime performance reasons, I don't see any benefit to not doing this.
 #define A  _BV(PINB0)
 #define A_ _BV(PINB1)
 #define B  _BV(PINB2)
@@ -18,10 +22,6 @@ Motor motor(4, A5);
 #define C  _BV(PINB4)
 #define C_ _BV(PINB5)
 
-// Since the commutation masks are in a vector there is no need for these
-// to be rigidly defined...initialize could take the ports. However, since
-// they are all on the same port and we want *that* statically defined for
-// runtime performance reasons, I don't see any benefit to not doing this.
 #define LOW_COMMUTATION_BITS   (A_ | B_ | C_)
 #define HIGH_COMMUTATION_BITS  (A  | B  | C )
 
@@ -103,16 +103,14 @@ void Motor::initialize_timers() {
 void Motor::reset() {
   noInterrupts();
   
-  /* hardcoded */
   pinMode(speed_pin, INPUT);
 
   MOTOR_DDR |= ALL_COMMUTATION_BITS; // configure commutation pins as output
   MOTOR_PORT &= ALL_COMMUTATION_BITS_OFF;
 
   zc_initialize();
-  /* end hardcoded */
 
-  direction = 1;
+  direction = -1;
   sensing = false;
   phase_shift = 0;
   
@@ -192,6 +190,8 @@ void Motor::commutation_intr() {
 
 void Motor::next_commutation() {
   //raise_diag();
+  
+  disable_timer1_overflow();
 
   // stop the pwm bit flipping
   pwm_stop();
@@ -206,21 +206,19 @@ void Motor::next_commutation() {
   commutation += direction;
   if (commutation==6) {
     commutation = 0;
+    raise_diag();
   } else if (commutation==255) {
     commutation = 5;
-  }
-  if (commutation==0) {
     raise_diag();
-  }  
+  }
   // precalculate per-commutation values for the pwm interrupts
   _commutation = commutation_bits[commutation];
 
   // start timer for first half of commutation until zero crossing is detected
-  TCNT1 = 0;
+  TCNT1 = 0; // todo - can't reset timer counter and have 2 motors share it, use compX instead
 
   //start watching for zero crossing on idle phase // hardcoded
   MOTOR_ZC_MSK = zero_crossing_pin[commutation];
-  disable_timer1_overflow();
 
 #ifdef COMPLEMENTARY_SWITCHING
 
@@ -256,7 +254,7 @@ void Motor::next_commutation() {
 }
 
 unsigned int Motor::speed_control() {
-  
+
   if (!sensing) {
     return 0;
   }

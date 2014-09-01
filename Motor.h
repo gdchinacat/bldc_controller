@@ -39,7 +39,7 @@ class Motor {
   //private:
     int poles;       // number of pole pairs
     int speed_pin;   // pin the speed potentiometer is connected to
-    byte direction;
+    char direction;
     
     boolean sensing; // is commutation driven by interrupts (rather than timing)
 
