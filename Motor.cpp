@@ -110,7 +110,7 @@ void Motor::reset() {
 
   zc_initialize();
 
-  direction = -1;
+  direction = 1;
   sensing = false;
   phase_shift = 0;
   
