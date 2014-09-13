@@ -26,7 +26,7 @@
 #define timer2_overflow_enabled() (TIMSK2 & _BV(TOIE2))
 
 // PWM_PIN is the pin the source pwm can be seen on, depends which output compare unit is being used
-#define PWM_PIN 3
+//#define PWM_PIN 3
 
 void pwm_initialize(byte pwm_mask);
 void pwm_start();

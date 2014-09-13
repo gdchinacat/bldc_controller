@@ -17,7 +17,9 @@ void pwm_initialize(byte pwm_mask) {
   pwm_set_mask(pwm_mask);
   pwm_set_level(0);
 
+#ifdef PWM_PIN
   pinMode(PWM_PIN, OUTPUT); // show the source pwm
+#endif
 }
 
 void pwm_start() {

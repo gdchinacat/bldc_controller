@@ -26,12 +26,12 @@ Motor motor(4, A5);
 #define HIGH_COMMUTATION_BITS  (A  | B  | C )
 
 /* The commutation sequence */
-const byte commutation_bits[6] = {A | C_,  // short (long)
-                                  A | B_,  // long
-                                  C | B_,  // short
-                                  C | A_,  // long (long)
-                                  B | A_,  // short
-                                  B | C_}; // long
+const byte commutation_bits[6] = {A | C_,
+                                  A | B_,
+                                  C | B_,
+                                  C | A_,
+                                  B | A_,
+                                  B | C_};
 
 #define ALL_COMMUTATION_BITS      (LOW_COMMUTATION_BITS | HIGH_COMMUTATION_BITS)
 #define  ALL_COMMUTATION_BITS_OFF (~ALL_COMMUTATION_BITS)
@@ -41,9 +41,9 @@ const byte commutation_bits[6] = {A | C_,  // short (long)
 #define MOTOR_ZC_MSK PCMSK2
 #define MOTOR_ZC_PC _BV(2)
 
-#define ZC_PINA _BV(PIND5)
-#define ZC_PINB _BV(PIND6)
-#define ZC_PINC _BV(PIND7)
+#define ZC_PINA _BV(PIND2)
+#define ZC_PINB _BV(PIND3)
+#define ZC_PINC _BV(PIND4)
 
 #define ALL_ZC_PINS (ZC_PINA | ZC_PINB | ZC_PINC)
 
@@ -79,25 +79,33 @@ Motor::Motor(int poles, int speed_pin) {
 // Pin Change Interrupt 2 is used for zero crossing detection
 //   The channel to watch is enabled during next_commutation()
 ISR(PCINT2_vect) {
-  motor.commutation_intr();
+#ifdef DIAG_ZC_INTERRUPT
+  raise_diag();
+#endif
+  motor.zero_crossing_interrupt();
+#ifdef DIAG_ZC_INTERRUPT
+  drop_diag();
+#endif
 }
 
-ISR(TIMER1_OVF_vect) {
+ISR(TIMER1_COMPB_vect) {
+#ifdef DIAG_COMMUTATION_INTERRUPT
+  raise_diag();
+#endif
   motor.next_commutation();
+#ifdef DIAG_COMMUTATION_INTERRUPT
+  drop_diag();
+#endif
 }
 
 void Motor::initialize_timers() {
   // Timer1 is used for commutation timing
   
-  // Timer 1 is used for commutation timing. It is reset when commutation is advanced and used to time the
-  // first half of the commutation step as detected by the zero crossing detector. It then is used to count
-  // down the second half of the commutation step until overflow. It doesn't seem possible to use compb
-  // since that requires the pin be wired for PWM which conflicts with its use for output.
+  // Timer 1 is used for commutation timing. It is reset on each zero crossing interrupt. COMPB is used to 
+  // to time the commutation.
+  disable_timer1_compb();
   TCCR1A = 0;                // normal mode
-  TCCR1B = 0;                // disconnected (connected later)
   TCCR1B = _BV(CS11);        // 8x prescale, high resolution provides better commutation accuracy (I think...), but too high and you overlow.
-  disable_timer1_overflow();
-
 }
 
 void Motor::reset() {
@@ -129,13 +137,16 @@ const unsigned int RAMP_UP[][2] = {{3906, 25},  //hardcoded
                           {0, 0}};
 
 void Motor::start() {
+
   reset();
 
   sensing = true;
   
+  // next commutation on next timer1 tick
+  OCR1B = 0;
   TCNT1 = 0xFFFF;
-  enable_timer1_overflow(); // next commutation on next timer1 tick
-    
+  enable_timer1_compb();
+  
   while (!sensing) {
     pwm_set_level(0);
     reset();
@@ -169,31 +180,32 @@ __inline__ void deadtime_delay() {
 }
 
 
-void Motor::commutation_intr() {
-  //raise_diag();
+void Motor::zero_crossing_interrupt() {
+#ifdef DIAG_ZC
+  raise_diag();
+#endif
   interrupt_count++;
   if (sensing) {
     disable_zero_crossing_detection();
 
     unsigned int tcnt1 = TCNT1;
+    
+    //reset the counter and set the overflow timer for 1/2 the measured time since we're 1/2 way through the phase 
+    TCNT1 = 0; // todo don't reset tcnt since it can't be shared between motors - support tick counts greater than 16 bit using overflow
+    OCR1B = (tcnt1 >> 1) + phase_shift;  //hardcoded
+    enable_timer1_compb(); // next_commutation
 
-    if (commutation & 1) {
-      commutation_period = tcnt1 << 1;
-    }
+    commutation_period = tcnt1;
 
-    // Timer1 kept counting since it was reset and triggered last commutation
-    // todo don't reset tcnt since it can't be shared between motors, use compX instead
-    TCNT1 = 0xFFFF - tcnt1 + phase_shift;
-
-    enable_timer1_overflow(); // next_commutation
   }
-  //drop_diag();
+#ifdef DIAG_ZC
+  drop_diag();
+#endif
 }
 
 void Motor::next_commutation() {
-  //raise_diag();
   
-  disable_timer1_overflow();
+  disable_timer1_compb();
 
   // stop the pwm bit flipping
   pwm_stop();
@@ -206,16 +218,17 @@ void Motor::next_commutation() {
   commutation += direction;
   if (commutation==6) {
     commutation = 0;
+#ifdef DIAG_COMMUTATION_CYCLE
     raise_diag();
+#endif
   } else if (commutation==255) {
     commutation = 5;
+#ifdef DIAG_COMMUTATION_CYCLE
     raise_diag();
+#endif
   }
   // precalculate per-commutation values for the pwm interrupts
   _commutation = commutation_bits[commutation];
-
-  // start timer for first half of commutation until zero crossing is detected
-  TCNT1 = 0; // todo - can't reset timer counter and have 2 motors share it, use compX instead
 
   //start watching for zero crossing on idle phase // hardcoded
   MOTOR_ZC_MSK |= zero_crossing_pin[commutation];
@@ -252,7 +265,9 @@ void Motor::next_commutation() {
 
   pwm_start();
 
+#ifdef DIAG_COMMUTATION_CYCLE
   drop_diag();
+#endif
 }
 
 unsigned int Motor::speed_control() {
@@ -267,7 +282,7 @@ unsigned int Motor::speed_control() {
   
   // how fast should we go
   int input = analogRead(speed_pin);
-  int desired_commutation_period = map(input, 0, 1024, 5000, 2750);  //hardcoded, timer1 prescaling sensitive
+  int desired_commutation_period = map(input, 0, 1024, 5000, 1500);  //hardcoded, timer1 prescaling sensitive
 
 //  Serial.print("input: "); Serial.print(input);
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);

@@ -8,8 +8,6 @@ extern "C" {
 
 extern Motor motor;
 
-#define PINS  0b010101
-
 void setup() {
 
   pinMode(diag_pin, OUTPUT);
@@ -17,29 +15,10 @@ void setup() {
   //Serial.begin(115200);
   //Serial.setTimeout(5);
   
-  DDRB |= PINS;
-
 }
 
 void loop() {
 
-//  pwm_initialize(PINS);
-//  pwm_start();
-//  int dir = 1;
-//  byte power_level = 0;
-//  while (true) {
-//    pwm_set_level(power_level);
-//    if (power_level == 0) {
-//      dir = 1;
-//
-//    } else if (power_level == PWM_LEVELS - 1) {
-//      dir = -1;
-//    }
-//    power_level += dir;
-//    delay(10);
-//  }
-//  return;
-  
   motor.start();
 
   int mult = 0;

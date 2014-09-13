@@ -10,11 +10,14 @@
 #endif
 
 // lots of hard coded timer stuff here....
-#define disable_timer1_overflow(); (TIMSK1 &= ~_BV(TOIE1));
-#define enable_timer1_overflow(); (TIMSK1 |= _BV(TOIE1));
-
 #define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));
 #define enable_timer1_compb();  (TIMSK1 |= _BV(OCIE1B));
+
+
+//#define DIAG_ZC_INTERRUPT
+//#define DIAG_ZC
+#define DIAG_COMMUTATION_CYCLE
+//#define DIAG_COMMUTATION_INTERRUPT
 
 class Motor {
   
@@ -34,7 +37,7 @@ class Motor {
     void pwm_on();  // called when pwm should be on 
     void pwm_off(); // called when pwm should be off
     unsigned int speed_control();
-    void commutation_intr();  // called from global
+    void zero_crossing_interrupt();  // called from global
     
   //private:
     int poles;       // number of pole pairs
