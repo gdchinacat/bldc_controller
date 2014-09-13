@@ -98,6 +98,11 @@ ISR(TIMER1_COMPB_vect) {
 #endif
 }
 
+// TICKS_PER_MICROSECOND is 16 (Mhz) / multiplier PRESCALE
+#define PRESCALE 8
+#define TICKS_PER_MICROSECOND (16 / PRESCALE)
+#define MICROSECONDS_PER_TICK (1.0 / TICKS_PER_MICROSECOND)
+
 void Motor::initialize_timers() {
   // Timer1 is used for commutation timing
   
@@ -195,7 +200,9 @@ void Motor::zero_crossing_interrupt() {
     OCR1B = (tcnt1 >> 1) + phase_shift;  //hardcoded
     enable_timer1_compb(); // next_commutation
 
-    commutation_period = tcnt1;
+    if (commutation == 0) { // they aren't accurate enough and it messes up the speed control
+      commutation_period = tcnt1;
+    }
 
   }
 #ifdef DIAG_ZC
@@ -282,7 +289,7 @@ unsigned int Motor::speed_control() {
   
   // how fast should we go
   int input = analogRead(speed_pin);
-  int desired_commutation_period = map(input, 0, 1024, 5000, 1500);  //hardcoded, timer1 prescaling sensitive
+  int desired_commutation_period = map(input, 0, 1024, 10000, 1500);  //hardcoded, timer1 prescaling sensitive
 
 //  Serial.print("input: "); Serial.print(input);
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
@@ -298,7 +305,10 @@ unsigned int Motor::speed_control() {
   if (delta > 0) {
     pwm_set_level(pwm_level + 1);
   } else if (delta < 0) {
-    pwm_set_level(pwm_level - 1);
+    byte _pwm_level  pwm_level;
+    if (_pwm_level) {
+      pwm_set_level(pwm_level - 1);
+    }
   }
   return _commutation_period; // not exactly sure what this means, need to work out the math
 }
@@ -309,7 +319,7 @@ unsigned int Motor::rpm() {
     noInterrupts();
     unsigned int __commutation_period = commutation_period;
     interrupts();
-    return (unsigned int)(60 * 1000000.0 / (__commutation_period) / (1234  * poles * 6));  // todo - 1234 some prescale factor
+    return (unsigned int)(60 * 1000000.0 / (__commutation_period) / (MICROSECONDS_PER_TICK * poles * 6));
   } else {
     return 0;
   }

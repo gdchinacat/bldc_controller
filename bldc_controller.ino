@@ -31,8 +31,8 @@ void loop() {
       delayMicroseconds(_delay);
     }
 
-
-//    if (++mult == 10) {
+//
+//    if (++mult == 1) {
 //      mult = 0;
 //      
 //      noInterrupts();
@@ -40,11 +40,11 @@ void loop() {
 //      interrupts();
 //      
 //      // Speed Control Monitor
-//      //Serial.print(" desired: "); Serial.print(desired_commutation_period);
-//      Serial.print(" period:"); Serial.print(period); 
-//      Serial.print(" power_level:"); Serial.print(pwm_level);
-//      //Serial.print(" rpm:"); Serial.print(motor.rpm());
-//      //if (motor.sensing) { Serial.print(" sensing"); }
+//      //Serial.print("\tdesired: "); Serial.print(desired_commutation_period);
+//      Serial.print("\tperiod:"); Serial.print(period); 
+//      Serial.print("\tpower_level:"); Serial.print(pwm_level);
+//      Serial.print("\trpm:"); Serial.print(motor.rpm());
+//      //if (motor.sensing) { Serial.print("\tsensing"); }
 //      Serial.println();
 //
 //    }
