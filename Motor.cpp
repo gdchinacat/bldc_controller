@@ -145,8 +145,6 @@ void Motor::start() {
 
   reset();
 
-  sensing = true;
-  
   // next commutation on next timer1 tick
   OCR1B = 0;
   TCNT1 = 0xFFFF;
@@ -158,6 +156,7 @@ void Motor::start() {
 
     // align
     pwm_set_level(PWM_LEVELS);
+    next_commutation();
     delay(2000);
     
     // ramp up
@@ -166,7 +165,12 @@ void Motor::start() {
       int _delay = c[1];
       //Serial.print("period: "); Serial.print(period); Serial.print(" delay: "); Serial.print(_delay); Serial.println();
       noInterrupts();
-      // todo implement me - not implementing since no good way to test startup...it's busted for other reasons
+      next_commutation();
+      if (interrupt_count > 5) {
+        sensing = true;
+        interrupts();
+        break;
+      }
       interrupts();
       delay(_delay);
     }
