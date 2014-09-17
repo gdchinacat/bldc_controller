@@ -6,7 +6,7 @@ extern "C" {
 }
 
 /** the motor */
-Motor motor(4, A5);
+Motor motor(4, SPEED_PIN);
 
 #define MOTOR_PORT PORTB
 #define MOTOR_DDR DDRB

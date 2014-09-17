@@ -4,6 +4,13 @@
 
 #include "Arduino.h"
 
+// What should the diagnostics pin be raised?
+//#define DIAG_ZC_INTERRUPT
+//#define DIAG_ZC
+#define DIAG_COMMUTATION_CYCLE
+//#define DIAG_COMMUTATION_INTERRUPT
+
+#define SPEED_PIN A5
 //#define COMPLEMENTARY_SWITCHING
 #ifdef COMPLEMENTARY_SWITCHING
 #error This is not yet implemented to use the pwm module, extend it to support off then on semantics
@@ -12,12 +19,6 @@
 // lots of hard coded timer stuff here....
 #define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));
 #define enable_timer1_compb();  (TIMSK1 |= _BV(OCIE1B));
-
-
-//#define DIAG_ZC_INTERRUPT
-//#define DIAG_ZC
-#define DIAG_COMMUTATION_CYCLE
-//#define DIAG_COMMUTATION_INTERRUPT
 
 class Motor {
   
