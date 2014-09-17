@@ -25,9 +25,7 @@ void pwm_initialize(byte pwm_mask) {
 void pwm_start() {
   TCNT2 = 0xFF;
   enable_timer2_interrupts();
-  
-  // TODO HACK - pwm_set_level twiddles the interrupts, but we just turned them on...
-  pwm_set_level(pwm_level);
+  pwm_set_level(pwm_level); // reset the power level
 }
 
 void pwm_stop() {
