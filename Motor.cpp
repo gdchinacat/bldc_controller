@@ -252,8 +252,9 @@ void Motor::next_commutation() {
   // Turn off everything that isn't in the new commutation 
   MOTOR_PORT = port &= (ALL_COMMUTATION_BITS_OFF | _commutation);
   deadtime_delay();
-  
-  MOTOR_PORT = port |= _commutation;
+  if (pwm_level) { //only turn on the new commutation if there is power
+    MOTOR_PORT = port |= _commutation;
+  }
 
 //////////////////////////////////////////////////////////////
 // Set up PWM
