@@ -277,12 +277,17 @@ void Motor::next_commutation() {
 // Set up PWM
 //////////////////////////////////////////////////////////////
 
-  //hard switching (scheme 1)
+  // PWM schemes refer to those in this paper that succinctly describes a bunch
+  // http://www.drivetechinc.com/articles/SW_BLDCAC5.PDF
+  
+  // scheme 0: 2 quadrant -- switch either high or low
+  //pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS); // speed regulation isn't as consistent
+  //-- or --
+  //pwm_set_mask(_commutation & LOW_COMMUTATION_BITS);
+
+  // scheme 1: 4 quadrant simultaneous -- switch high and low simultaneously
   pwm_set_mask(_commutation);
   
-  // soft switching (scheme 0) 
-  //pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS);
-  //pwm_set_mask(_commutation & LOW_COMMUTATION_BITS);
 
 #ifdef COMPLEMENTARY_SWITCHING
   // complementary switching/unipolar switching
