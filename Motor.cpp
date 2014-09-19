@@ -210,7 +210,6 @@ void Motor::zero_crossing_interrupt() {
 #ifdef DIAG_ZC
   raise_diag();
 #endif
-  interrupt_count++;
   if (sensing) {
     disable_zero_crossing_detection();
 
@@ -226,6 +225,7 @@ void Motor::zero_crossing_interrupt() {
     }
 
   }
+  interrupt_count++;
 #ifdef DIAG_ZC
   drop_diag();
 #endif
