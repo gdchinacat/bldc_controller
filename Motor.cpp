@@ -310,7 +310,6 @@ unsigned int Motor::speed_control() {
   // how fast should we go
   int input = analogRead(speed_pin);
   
-  
   int desired_commutation_period = map(input, 0, 1024, 10000, 1500);  //hardcoded, timer1 prescaling sensitive
 
 //  Serial.print("input: "); Serial.print(input);

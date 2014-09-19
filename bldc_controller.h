@@ -39,7 +39,7 @@
 
 // deadtime_delay is used to create the necessary delay between turning off a transistor and truning on it's pair.
 // it runs with interrupts disabled.
-//#define deadtime_delay() { int _x; for ( _x = 100; _x ; _x--) __asm__("nop\n\t"); }
+//#define deadtime_delay() {  __asm__("nop\n\t"); }
 #define deadtime_delay() { };
 
 __inline__ void raise_diag() {
