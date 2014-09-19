@@ -35,6 +35,16 @@ void setup() {
 }
 
 void loop() {
+  
+//  #define ON (_BV(1))
+//  #define OFF (_BV(1))
+//
+//  pwm_initialize(ON);
+//  pwm_set_mask_off(OFF);
+//  pwm_set_level(32);
+//  pwm_start(); 
+//  while (true);
+//  return;
 
   motor.start();
 

@@ -15,18 +15,22 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+
+
 //
 // This is all hardcoded for now -- if you change one thing you probably need to change others as well
 
 // The port that PWM is controlling (PORTx)
 #define PWM_PORT PORTB
 
-//PWM_LEVELS defines the number of power levels, and indirectly, the period
-//of the PWM. It can be used to trade power resolution with pwm frequency.
-#define PWM_LEVELS 64
+// PWM_TIMER_PRESCALE is the CSXX flags that indicate what prescaler to apply.
+// CS21 = 8x
+#define PWM_TIMER_PRESCALE (_BV(CS21))
 
-// The prescale (8x seems to be the lowest reasonable)
-#define PWM_TIMER_PRESCALE _BV(CS21)
+// PWM_LEVELS is the number of clock ticks per pwm interval.
+// 64 ticks with the 8x prescaler results in 31.25kHz.
+// 72 ticks with the 8x prescaler results in 26.67kHz.
+#define PWM_LEVELS 75
 
 // Timer2 is used for generating the interrupts used for software based PWM.
 #define disable_timer2_overflow(); TIMSK2 &= ~_BV(TOIE2);
@@ -49,9 +53,9 @@ void pwm_start();
 void pwm_stop();
 void pwm_set_level(byte level);
 void pwm_set_mask(byte mask);
-
-#define _PWM_ON();    { PWM_PORT |= pwm_mask;  }
-#define _PWM_OFF();   { PWM_PORT &= ~pwm_mask; }
+#ifdef COMPLEMENTARY_SWITCHING
+void pwm_set_mask_off(byte mask_off);  // mask to apply during the off period
+#endif
 
 // the current pwm level
 #define pwm_level (OCR2B - (256 - PWM_LEVELS))

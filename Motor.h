@@ -27,10 +27,6 @@
 //#define DIAG_COMMUTATION_INTERRUPT
 
 #define SPEED_PIN A5
-//#define COMPLEMENTARY_SWITCHING
-#ifdef COMPLEMENTARY_SWITCHING
-#error This is not yet implemented to use the pwm module, extend it to support off then on semantics
-#endif
 
 // lots of hard coded timer stuff here....
 #define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));

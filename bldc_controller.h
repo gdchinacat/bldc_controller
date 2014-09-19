@@ -20,6 +20,11 @@
 
 #include "Arduino.h"
 
+
+// should complementary switching be used? (I think I'm doing it right but it gets *really* hot,
+// I don't recommend without a fire extinguisher and a will to debug).
+//#define COMPLEMENTARY_SWITCHING
+
 #ifndef sbi
   #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif
@@ -31,6 +36,12 @@
 #define diag_pin A0
 #define diag_pin_bit (1 << 0)
 
+
+// deadtime_delay is used to create the necessary delay between turning off a transistor and truning on it's pair.
+// it runs with interrupts disabled.
+//#define deadtime_delay() { int _x; for ( _x = 100; _x ; _x--) __asm__("nop\n\t"); }
+#define deadtime_delay() { };
+
 __inline__ void raise_diag() {
   PORTC |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())
 }
@@ -38,5 +49,6 @@ __inline__ void raise_diag() {
 __inline__ void drop_diag() {
   PORTC &= ~diag_pin_bit;
 }
+
 
 #endif

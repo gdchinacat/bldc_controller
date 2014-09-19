@@ -25,7 +25,7 @@ extern "C" {
 /** the motor */
 Motor motor(4, SPEED_PIN);
 
-#define MOTOR_PORT PORTB
+#define MOTOR_PORT PWM_PORT
 #define MOTOR_DDR DDRB
 
 // Since the commutation masks are in a vector there is no need for these
@@ -49,6 +49,8 @@ const byte commutation_bits[6] = {A | C_,
                                   C | A_,
                                   B | A_,
                                   B | C_};
+
+#define anti_commutation(commutation) (commutation < 3 ? commutation_bits[commutation + 3] : commutation_bits[commutation - 3])
 
 #define ALL_COMMUTATION_BITS      (LOW_COMMUTATION_BITS | HIGH_COMMUTATION_BITS)
 #define  ALL_COMMUTATION_BITS_OFF (~ALL_COMMUTATION_BITS)
@@ -198,12 +200,6 @@ void Motor::start() {
   pwm_start();
 }
 
-__inline__ void deadtime_delay() {
-  // my hunch is clock ticks between the two OUTs is sufficient that this isn't
-  // really necessary. It didn't seem to do anything to the warm transistors (which
-  // was resolved by not gratuitously turning the transistors off).
-  //__asm__("nop\n\t"); //62.5ns deadtime //hardcoded
-}
 
 
 void Motor::zero_crossing_interrupt() {
@@ -255,6 +251,7 @@ void Motor::next_commutation() {
     raise_diag();
 #endif
   }
+  
   // precalculate per-commutation values for the pwm interrupts
   _commutation = commutation_bits[commutation];
 
@@ -281,21 +278,16 @@ void Motor::next_commutation() {
   // http://www.drivetechinc.com/articles/SW_BLDCAC5.PDF
   
   // scheme 0: 2 quadrant -- switch either high or low
-  //pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS); // speed regulation isn't as consistent
+  //pwm_set_mask(_commutation & HIGH_COMMUTATION_BITS);
   //-- or --
   //pwm_set_mask(_commutation & LOW_COMMUTATION_BITS);
 
   // scheme 1: 4 quadrant simultaneous -- switch high and low simultaneously
   pwm_set_mask(_commutation);
-  
 
 #ifdef COMPLEMENTARY_SWITCHING
-  // complementary switching/unipolar switching
-  // shift and mask to turn the complementary low transistor on
-  // I've seen different literature on complementary switching that
-  // says to invert the high and low.
-  deadtime_delay();
-  MOTOR_PORT = port |= ((_commutation & 0b10101) << 1); //hardcoded
+  // scheme 2: 4 quandrant, simultaneous, complementary
+  pwm_set_mask_off(anti_commutation(commutation));
 #endif
 
   pwm_start();
@@ -310,13 +302,15 @@ unsigned int Motor::speed_control() {
   if (!sensing) {
     return 0;
   }
-  
+
 //  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
 //  delay(150);
 //  return 0;
   
   // how fast should we go
   int input = analogRead(speed_pin);
+  
+  
   int desired_commutation_period = map(input, 0, 1024, 10000, 1500);  //hardcoded, timer1 prescaling sensitive
 
 //  Serial.print("input: "); Serial.print(input);
@@ -327,7 +321,7 @@ unsigned int Motor::speed_control() {
   noInterrupts();
   int _commutation_period = commutation_period;
   interrupts();
-    
+
   // adjust power level accordingly  //hardcoded
   int delta = _commutation_period - desired_commutation_period;
   if (delta > 0) {
