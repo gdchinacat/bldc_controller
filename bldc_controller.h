@@ -23,6 +23,7 @@
 
 // should complementary switching be used? (I think I'm doing it right but it gets *really* hot,
 // I don't recommend without a fire extinguisher and a will to debug).
+// I now think this is just b/c I don't have heat sinks, and it's time...
 //#define COMPLEMENTARY_SWITCHING
 
 #ifndef sbi
@@ -39,8 +40,8 @@
 
 // deadtime_delay is used to create the necessary delay between turning off a transistor and truning on it's pair.
 // it runs with interrupts disabled.
-//#define deadtime_delay() {  __asm__("nop\n\t"); }
-#define deadtime_delay() { };
+#define deadtime_delay() {  __asm__("nop\n\t"); }
+//#define deadtime_delay() { };
 
 __inline__ void raise_diag() {
   PORTC |= diag_pin_bit; // set the 'start of cycle' signal (turned off in loop())

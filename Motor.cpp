@@ -168,6 +168,8 @@ void Motor::start() {
   OCR1B = 0;
   TCNT1 = 0xFFFF;
   enable_timer1_compb();
+
+  sensing = true;
   
   while (!sensing) {
     pwm_set_level(0);
@@ -179,19 +181,20 @@ void Motor::start() {
     delay(2000);
     
     // ramp up
-    for (const unsigned int *c = RAMP_UP[0]; c[0] && !sensing; c+=2) {
-      //int period = c[0];
-      int _delay = c[1];
-      //Serial.print("period: "); Serial.print(period); Serial.print(" delay: "); Serial.print(_delay); Serial.println();
-      noInterrupts();
+    pwm_set_level(PWM_LEVELS);
+    int _delay = 5500;
+    while (!sensing) {
       next_commutation();
-      if (interrupt_count > 5) {
+      delayMicroseconds(_delay);
+      if (_delay > 2000) {
+        _delay -= 1;
+      }
+      noInterrupts();
+      if (interrupt_count > 10000) {
         sensing = true;
-        interrupts();
-        break;
       }
       interrupts();
-      delay(_delay);
+      
     }
     
     // Ooops, got to the end of startup and not sensing...start over
@@ -206,6 +209,7 @@ void Motor::zero_crossing_interrupt() {
 #ifdef DIAG_ZC
   raise_diag();
 #endif
+
   if (sensing) {
     disable_zero_crossing_detection();
 
@@ -258,7 +262,6 @@ void Motor::next_commutation() {
   //start watching for zero crossing on idle phase // hardcoded
   MOTOR_ZC_MSK |= zero_crossing_pin[commutation];
 
-
 //////////////////////////////////////////////////////////////
 // apply new commutation
 //////////////////////////////////////////////////////////////
@@ -310,11 +313,11 @@ unsigned int Motor::speed_control() {
   // how fast should we go
   int input = analogRead(speed_pin);
   
-  int desired_commutation_period = map(input, 0, 1024, 10000, 1500);  //hardcoded, timer1 prescaling sensitive
+  int desired_commutation_period = map(input, 0, 40, 10000, 1500);  //hardcoded, timer1 prescaling sensitive
 
-//  Serial.print("input: "); Serial.print(input);
-//  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
-//  Serial.println();
+  Serial.print("input: "); Serial.print(input);
+  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
+  Serial.println();
   
   // how fast are we going 
   noInterrupts();
