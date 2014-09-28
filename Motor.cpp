@@ -60,18 +60,22 @@ const byte commutation_bits[6] = {A | C_,
 #define MOTOR_ZC_MSK PCMSK2
 #define MOTOR_ZC_PC _BV(2)
 
-#define ZC_PINA _BV(PIND2)
-#define ZC_PINB _BV(PIND3)
-#define ZC_PINC _BV(PIND4)
+#define ZC_PINA PIND2
+#define ZC_PINB PIND3
+#define ZC_PINC PIND4
 
-#define ALL_ZC_PINS (ZC_PINA | ZC_PINB | ZC_PINC)
+#define _ZC_PINA _BV(ZC_PINA)
+#define _ZC_PINB _BV(ZC_PINB)
+#define _ZC_PINC _BV(ZC_PINC)
 
-const byte zero_crossing_pin[6] = {ZC_PINB,
-                                   ZC_PINC,
-                                   ZC_PINA,
-                                   ZC_PINB,
-                                   ZC_PINC,
-                                   ZC_PINA};
+#define ALL_ZC_PINS (_ZC_PINA | _ZC_PINB | _ZC_PINC)
+
+const byte zero_crossing_pin[6] = {_ZC_PINB,
+                                   _ZC_PINC,
+                                   _ZC_PINA,
+                                   _ZC_PINB,
+                                   _ZC_PINC,
+                                   _ZC_PINA};
 
 // clear the zero-crossing detection interrupts
 #define disable_zero_crossing_detection() {\
@@ -79,9 +83,13 @@ const byte zero_crossing_pin[6] = {ZC_PINB,
   PCIFR |= MOTOR_ZC_PC; \
 }
 
+// set the pullup resistors on the zero crossing pins
 #define zc_initialize() {\
   disable_zero_crossing_detection(); \
   PCICR |= MOTOR_ZC_PC; \
+  pinMode(ZC_PINA, INPUT); digitalWrite(ZC_PINA, 1); \
+  pinMode(ZC_PINB, INPUT); digitalWrite(ZC_PINB, 1); \
+  pinMode(ZC_PINC, INPUT); digitalWrite(ZC_PINC, 1); \
 }
                                  
 /**
@@ -310,7 +318,7 @@ unsigned int Motor::speed_control() {
   // how fast should we go
   int input = analogRead(speed_pin);
   
-  int desired_commutation_period = map(input, 0, 1024, 10000, 1500);  //hardcoded, timer1 prescaling sensitive
+  int desired_commutation_period = map(input, 0, 1024, 10000, 500);  //hardcoded, timer1 prescaling sensitive
 
 //  Serial.print("input: "); Serial.print(input);
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
