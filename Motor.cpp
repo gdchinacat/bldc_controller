@@ -317,20 +317,25 @@ unsigned int Motor::speed_control() {
   
   // how fast should we go
   int input = analogRead(speed_pin);
-  
-  int desired_commutation_period = map(input, 0, 1024, 10000, 500);  //hardcoded, timer1 prescaling sensitive
 
-//  Serial.print("input: "); Serial.print(input);
-//  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
-//  Serial.println();
-  
   // how fast are we going 
   noInterrupts();
   int _commutation_period = commutation_period;
   interrupts();
+  
+#ifdef CONTROL_RPM
+  int desired_rpm = map(input, 0, 1024, 600, 8500);  //hardcoded, timer1 prescaling sensitive
+  int delta = desired_rpm - rpm();
+#else
+  int desired_commutation_period = map(input, 0, 1024, 10000, 500);  //hardcoded, timer1 prescaling sensitive
+  int delta = _commutation_period - desired_commutation_period;
+//  Serial.print("input: "); Serial.print(input);
+//  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
+//  Serial.println();
+#endif
+
 
   // adjust power level accordingly  //hardcoded
-  int delta = _commutation_period - desired_commutation_period;
   if (delta > 0) {
     pwm_set_level(pwm_level + 1);
   } else if (delta < 0) {

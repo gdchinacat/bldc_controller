@@ -20,6 +20,9 @@
 
 #include "Arduino.h"
 
+// Control the RPM rather than the commutation period. rpm tends surge.
+#define CONTROL_RPM
+
 // What should the diagnostics pin be raised?
 //#define DIAG_ZC_INTERRUPT
 //#define DIAG_ZC
