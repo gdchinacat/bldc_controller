@@ -78,13 +78,14 @@ void loop() {
 ////      }
 //
 //      
-//      //noInterrupts();
-//      //int period = motor.commutation_period;
-//      //interrupts();
+////      noInterrupts();
+////      int period = motor.commutation_period;
+////      interrupts();
 //      
 //      // Speed Control Monitor
 //      //Serial.print("\tdesired: "); Serial.print(desired_commutation_period);
-//      //Serial.print(",period:"); Serial.print(period); 
+//      //Serial.print(period); Serial.print("\t");
+//      //Serial.print((int)motor.power_level); Serial.print("\t");
 //      Serial.print(pwm_level); Serial.print("\t");
 //      Serial.print(motor.rpm());  Serial.print("\t");
 //      //Serial.print(phase_shift); Serial.print("\t");

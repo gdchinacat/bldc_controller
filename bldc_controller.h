@@ -25,6 +25,9 @@
 // I don't recommend without a fire extinguisher and a will to debug).
 //#define COMPLEMENTARY_SWITCHING
 
+// Control the RPM rather than the commutation period. rpm tends surge.
+//#define CONTROL_RPM
+
 #ifndef sbi
   #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif

@@ -50,6 +50,28 @@ const byte commutation_bits[6] = {A | C_,
                                   B | A_,
                                   B | C_};
 
+/* 
+The plugging braking commutation sequence, essentially swap A and B. 
+
+This does not appear to be compatible with the zero crossing wiring
+scheme since plugging required powering the phase that crosses zero.
+It is possible to use pwm off time to monitor the phase, but the
+current implementation wires the *filtered* signals to the zero
+crossing which persents a hall sensor-like square wave. This just
+isn't going to happen with the current wiring. There are pins, but
+I plan to use them for a second motor instance.
+
+So, I'm leaving it and this comment here for now and moving right
+along. A project for another day when I actually need braking, and
+it's not just a "why can't I do it". 
+*/                                 
+const byte braking_commutation_bits[6] = {B | C_,
+                                          B | A_,
+                                          C | A_,
+                                          C | B_,
+                                          A | B_,
+                                          A | C_};
+
 #define anti_commutation(commutation) (commutation < 3 ? commutation_bits[commutation + 3] : commutation_bits[commutation - 3])
 
 #define ALL_COMMUTATION_BITS      (LOW_COMMUTATION_BITS | HIGH_COMMUTATION_BITS)
@@ -127,6 +149,7 @@ ISR(TIMER1_COMPB_vect) {
 
 // TICKS_PER_MICROSECOND is 16 (Mhz) / multiplier PRESCALE
 #define PRESCALE 8
+#define PRESCALE_BITS _BV(CS11)
 #define TICKS_PER_MICROSECOND (16 / PRESCALE)
 #define MICROSECONDS_PER_TICK (1.0 / TICKS_PER_MICROSECOND)
 
@@ -137,7 +160,7 @@ void Motor::initialize_timers() {
   // to time the commutation.
   disable_timer1_compb();
   TCCR1A = 0;                // normal mode
-  TCCR1B = _BV(CS11);        // 8x prescale, high resolution provides better commutation accuracy (I think...), but too high and you overlow.
+  TCCR1B = PRESCALE_BITS;
 }
 
 void Motor::reset() {
@@ -327,7 +350,7 @@ unsigned int Motor::speed_control() {
   int desired_rpm = map(input, 0, 1024, 600, 8500);  //hardcoded, timer1 prescaling sensitive
   int delta = desired_rpm - rpm();
 #else
-  int desired_commutation_period = map(input, 0, 1024, 10000, 500);  //hardcoded, timer1 prescaling sensitive
+  int desired_commutation_period = map(input, 0, 1024, 10000, 100);  //hardcoded, timer1 prescaling sensitive
   int delta = _commutation_period - desired_commutation_period;
 //  Serial.print("input: "); Serial.print(input);
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
