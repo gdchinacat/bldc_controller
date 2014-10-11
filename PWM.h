@@ -30,7 +30,7 @@
 // PWM_LEVELS is the number of clock ticks per pwm interval.
 // 64 ticks with the 8x prescaler results in 31.25kHz.
 // 72 ticks with the 8x prescaler results in 26.67kHz.
-#define PWM_LEVELS 75
+#define PWM_LEVELS 64
 
 // Timer2 is used for generating the interrupts used for software based PWM.
 #define disable_timer2_overflow(); TIMSK2 &= ~_BV(TOIE2);
@@ -59,4 +59,5 @@ void pwm_set_mask_off(byte mask_off);  // mask to apply during the off period
 
 // the current pwm level
 #define pwm_level (OCR2B - (256 - PWM_LEVELS))
+
 

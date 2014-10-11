@@ -25,13 +25,50 @@ extern "C" {
 
 extern Motor motor;
 
+#define enable_timer0_compa();   TIMSK0 |= _BV(OCIE0A);
+#define disable_timer0_compa();   TIMSK0 |= _BV(OCIE0A);
+
 void setup() {
 
   pinMode(diag_pin, OUTPUT);
-  
-  //Serial.begin(115200);
+
+  Serial.begin(4000000);
   //Serial.setTimeout(5);
-  
+
+  OCR0A = 0;  //hardcoded
+  enable_timer0_compa();
+
+}
+
+#define DELIMITER ","
+
+void serial_monitor() {
+//      int period = motor.commutation_period;
+//      unsigned int last_even = motor.last_even;
+//      unsigned int last_odd = motor.last_odd;
+//      int phase_shift = motor.phase_shift;
+      unsigned int interrupt_count = motor.interrupt_count;
+      interrupts();
+      
+      // Speed Control Monitor -- text is bulky and slow, use binary
+      Serial.print(millis()); Serial.print(DELIMITER);
+      Serial.print(motor.rpm());  Serial.print(DELIMITER);
+      //Serial.print(phase_shift); Serial.print(DELIMITER);
+      //Serial.print((int)last_even - (int)last_odd); Serial.print(DELIMITER);
+      Serial.print((int)pwm_level); Serial.print(DELIMITER);
+      Serial.print(interrupt_count); Serial.print(DELIMITER);
+      Serial.println();
+}
+
+static byte compa_count = 0;
+ISR(TIMER0_COMPA_vect) {
+  disable_timer0_compa();
+  //OCR0A = TCNT0 + 1000;  //hardcoded
+  if (20 == ++compa_count) {  // each one is a millisecond
+    compa_count = 0;
+    serial_monitor();
+  }
+  enable_timer0_compa();
 }
 
 void loop() {
@@ -49,52 +86,28 @@ void loop() {
   motor.start();
 
   int mult = 0;
-  //int dir = 1;
+  //int dir = -1;
   unsigned int _delay;
   
-//  Serial.print("pwm_level,rpm,phase_shift"); Serial.println();
+//  Serial.print("rpm"); Serial.print(DELIMITER);
+//  Serial.print("phase_shift"); Serial.print(DELIMITER);
+//  Serial.print("even - odd"); Serial.print(DELIMITER);
+//  Serial.print("pwm_level"); Serial.print(DELIMITER);
+//  Serial.print("millis"); Serial.print(DELIMITER);
+//  Serial.println();
+
+  //motor.auto_phase_shift = true;
   do {
     _delay = motor.speed_control();
+
     if (_delay > 10000) {
       delay(_delay / 1000);
     } else if (_delay > 0) {
       delayMicroseconds(_delay);
     }
 
-//    if (++mult == 1) {
-//      mult = 0;
-//
-//
-//      // phase debugging
-////      noInterrupts();
-////      int phase_shift = motor.phase_shift += dir;
-////      int over = motor.commutation_period * 0.45;
-////      int under = motor.commutation_period * 0.35;
-////      interrupts();
-////      if (phase_shift <= -over) {
-////        dir = 1;
-////      } else if (phase_shift >= under) {
-////        dir = -1;
-////      }
-//
-//      
-////      noInterrupts();
-////      int period = motor.commutation_period;
-////      interrupts();
-//      
-//      // Speed Control Monitor
-//      //Serial.print("\tdesired: "); Serial.print(desired_commutation_period);
-//      //Serial.print(period); Serial.print("\t");
-//      //Serial.print((int)motor.power_level); Serial.print("\t");
-//      Serial.print(pwm_level); Serial.print("\t");
-//      Serial.print(motor.rpm());  Serial.print("\t");
-//      //Serial.print(phase_shift); Serial.print("\t");
-//      //if (motor.sensing) { Serial.print("\tsensing"); }
-//      Serial.println();
-//
-//    }
-
   } while (_delay >= 0);
 }
+
 
 

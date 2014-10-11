@@ -45,17 +45,23 @@ class Motor {
     unsigned int speed_control();
     void zero_crossing_interrupt();  // called from global
     
-  private:
+  //private:
     int poles;       // number of pole pairs
     int speed_pin;   // pin the speed potentiometer is connected to
     char direction;
-    
+    boolean auto_phase_shift;
     boolean sensing; // is commutation driven by interrupts (rather than timing)
+
+    // even/odd debugging/phase shifting
+    unsigned int last_even;
+    unsigned int last_odd;
+    unsigned int last_commutation; // for commutation to zero crossing timing
 
     // commutation
     int interrupt_count;              // # of interrupts since last reset()
     int phase_shift;                  // # of ticks to shift commutation by
-    unsigned int commutation_period;  // last commutation period, in timer1 ticks
+    unsigned int commutation_period;  // time of last commutation cycle, in timer1 ticks
+    unsigned int commutation_period_accumulator; // sum of commutation periods since begining of last cycle
     byte commutation;                 // current commutation step
     byte _commutation;                // the current commutation power bits
     
@@ -65,3 +71,4 @@ class Motor {
 };
 
 #endif
+

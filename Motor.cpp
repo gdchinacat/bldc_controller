@@ -147,7 +147,8 @@ ISR(TIMER1_COMPB_vect) {
 #endif
 }
 
-// TICKS_PER_MICROSECOND is 16 (Mhz) / multiplier PRESCALE
+// The lowest prescale that works is 8x, anything lower
+// and commutation_period overflows.
 #define PRESCALE 8
 #define PRESCALE_BITS _BV(CS11)
 #define TICKS_PER_MICROSECOND (16 / PRESCALE)
@@ -173,12 +174,16 @@ void Motor::reset() {
 
   zc_initialize();
 
+  last_even = last_odd = 0;
+  auto_phase_shift = false;
+
   direction = 1;
   sensing = false;
   phase_shift = 0;
   
   interrupt_count = 0;
   commutation = 5;
+  commutation_period = commutation_period_accumulator = 0;
 
   initialize_timers();
 
@@ -238,17 +243,26 @@ void Motor::zero_crossing_interrupt() {
   raise_diag();
 #endif
   if (sensing) {
-    disable_zero_crossing_detection();
 
     unsigned int tcnt1 = TCNT1;
+    disable_zero_crossing_detection();
     
     //reset the counter and set the overflow timer for 1/2 the measured time since we're 1/2 way through the phase 
     TCNT1 = 0; // todo don't reset tcnt since it can't be shared between motors - support tick counts greater than 16 bit using overflow
     OCR1B = (tcnt1 >> 1) + phase_shift;  //hardcoded
     enable_timer1_compb(); // next_commutation
 
-    if (commutation == 0) { // they aren't accurate enough and it messes up the speed control
-      commutation_period = tcnt1;
+    // this is only needed for commutation based rpm monitoring, there
+    // may be other better means to monitor rpm (shaft position sensors)
+    commutation_period_accumulator += tcnt1;
+    if (commutation == 0) {
+      commutation_period = commutation_period_accumulator;
+      commutation_period_accumulator = 0;
+    }
+    if (commutation & 1) {
+      last_odd = tcnt1 - last_commutation;
+    } else {
+      last_even = tcnt1 - last_commutation;
     }
 
   }
@@ -259,6 +273,8 @@ void Motor::zero_crossing_interrupt() {
 }
 
 void Motor::next_commutation() {
+  
+  last_commutation = TCNT1;
   
   disable_timer1_compb();
 
@@ -345,9 +361,10 @@ unsigned int Motor::speed_control() {
   noInterrupts();
   int _commutation_period = commutation_period;
   interrupts();
+  _commutation_period /= 6.0;
   
 #ifdef CONTROL_RPM
-  int desired_rpm = map(input, 0, 1024, 600, 8500);  //hardcoded, timer1 prescaling sensitive
+  int desired_rpm = map(input, 0, 1024, 600, 10000);  //hardcoded, timer1 prescaling sensitive
   int delta = desired_rpm - rpm();
 #else
   int desired_commutation_period = map(input, 0, 1024, 10000, 100);  //hardcoded, timer1 prescaling sensitive
@@ -356,7 +373,6 @@ unsigned int Motor::speed_control() {
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
 //  Serial.println();
 #endif
-
 
   // adjust power level accordingly  //hardcoded
   if (delta > 0) {
@@ -367,7 +383,13 @@ unsigned int Motor::speed_control() {
       pwm_set_level(pwm_level - 1);
     }
   }
-  return _commutation_period; // not exactly sure what this means, need to work out the math
+  
+  int _phase_shift = auto_phase_shift ? - (_commutation_period * 0.25) : motor.phase_shift;
+  noInterrupts();
+  phase_shift = _phase_shift;
+  interrupts();
+  
+  return _commutation_period * MICROSECONDS_PER_TICK;
 }
 
 unsigned int Motor::rpm() {
@@ -376,10 +398,11 @@ unsigned int Motor::rpm() {
     noInterrupts();
     unsigned int __commutation_period = commutation_period;
     interrupts();
-    return (unsigned int)(60 * 1000000.0 / (__commutation_period) / (MICROSECONDS_PER_TICK * poles * 6));
+    return (unsigned int)(60 * 1000000.0 / (__commutation_period) / (MICROSECONDS_PER_TICK * poles));
   } else {
     return 0;
   }
 }
+
 
 

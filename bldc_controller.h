@@ -15,6 +15,10 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+// Increase the size of the serial buffer to avoid blocking in the serial
+// monitor.
+#define SERIAL_BUFFER_SIZE 256
+
 #ifndef bldc_controller_h
 #define bldc_controller_h
 
@@ -55,3 +59,4 @@ __inline__ void drop_diag() {
 
 
 #endif
+
