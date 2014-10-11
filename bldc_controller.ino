@@ -28,43 +28,60 @@ extern Motor motor;
 #define enable_timer0_compa();   TIMSK0 |= _BV(OCIE0A);
 #define disable_timer0_compa();   TIMSK0 |= _BV(OCIE0A);
 
+#define HEADER "-=-=-=-="
+
 void setup() {
 
   pinMode(diag_pin, OUTPUT);
 
   Serial.begin(4000000);
   //Serial.setTimeout(5);
+  Serial.print(HEADER); Serial.println();
+  //Serial.print("millis:2:,rpm:2:gauge,pwm_level:1:gauge,interrupts:2:count,commutation period:2:gauge"); Serial.println();
+  Serial.print("millis:2:,rpm:2:gauge,pwm_level:1:gauge,interrupts:2:count,desired rpm:2:gauge"); Serial.println();
 
-  OCR0A = 0;  //hardcoded
+  OCR0A = 0;  //hardcode
   enable_timer0_compa();
 
 }
 
 #define DELIMITER ","
 
+
+#define _write_byte(x) { serial_monitor_buffer[serial_monitor_buffer_idx++] = (byte)x; }
+#define _write_int(x) { _write_byte(highByte(x)); _write_byte(lowByte(x));}
+
 void serial_monitor() {
-//      int period = motor.commutation_period;
+      unsigned int period = motor.commutation_period;
 //      unsigned int last_even = motor.last_even;
 //      unsigned int last_odd = motor.last_odd;
 //      int phase_shift = motor.phase_shift;
       unsigned int interrupt_count = motor.interrupt_count;
+      unsigned int desired_rpm = motor.desired_rpm;
+      byte _pwm_level = pwm_level;
+      unsigned int _millis = millis();
       interrupts();
       
+      unsigned int rpm = motor.rpm(period);
+      
+      
       // Speed Control Monitor -- text is bulky and slow, use binary
-      Serial.print(millis()); Serial.print(DELIMITER);
-      Serial.print(motor.rpm());  Serial.print(DELIMITER);
-      //Serial.print(phase_shift); Serial.print(DELIMITER);
-      //Serial.print((int)last_even - (int)last_odd); Serial.print(DELIMITER);
-      Serial.print((int)pwm_level); Serial.print(DELIMITER);
-      Serial.print(interrupt_count); Serial.print(DELIMITER);
-      Serial.println();
+      byte serial_monitor_buffer_idx = 0;
+      byte serial_monitor_buffer[20];
+      serial_monitor_buffer_idx = 0;
+      _write_int(_millis)
+      _write_int(rpm);
+      _write_byte(_pwm_level);
+      _write_int(interrupt_count);
+      _write_int(desired_rpm);
+      //_write_int(period)
+      Serial.write(serial_monitor_buffer, serial_monitor_buffer_idx);
 }
 
 static byte compa_count = 0;
 ISR(TIMER0_COMPA_vect) {
   disable_timer0_compa();
-  //OCR0A = TCNT0 + 1000;  //hardcoded
-  if (20 == ++compa_count) {  // each one is a millisecond
+  if (5 == ++compa_count) {  // 1 compa_count is a millisecond
     compa_count = 0;
     serial_monitor();
   }
@@ -89,14 +106,7 @@ void loop() {
   //int dir = -1;
   unsigned int _delay;
   
-//  Serial.print("rpm"); Serial.print(DELIMITER);
-//  Serial.print("phase_shift"); Serial.print(DELIMITER);
-//  Serial.print("even - odd"); Serial.print(DELIMITER);
-//  Serial.print("pwm_level"); Serial.print(DELIMITER);
-//  Serial.print("millis"); Serial.print(DELIMITER);
-//  Serial.println();
-
-  //motor.auto_phase_shift = true;
+  motor.auto_phase_shift = true;
   do {
     _delay = motor.speed_control();
 

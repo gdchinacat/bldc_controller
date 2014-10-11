@@ -147,13 +147,6 @@ ISR(TIMER1_COMPB_vect) {
 #endif
 }
 
-// The lowest prescale that works is 8x, anything lower
-// and commutation_period overflows.
-#define PRESCALE 8
-#define PRESCALE_BITS _BV(CS11)
-#define TICKS_PER_MICROSECOND (16 / PRESCALE)
-#define MICROSECONDS_PER_TICK (1.0 / TICKS_PER_MICROSECOND)
-
 void Motor::initialize_timers() {
   // Timer1 is used for commutation timing
   
@@ -357,17 +350,20 @@ unsigned int Motor::speed_control() {
   // how fast should we go
   int input = analogRead(speed_pin);
 
-  // how fast are we going 
+#ifdef CONTROL_RPM
+  int _desired_rpm = (desired_rpm + map(input, 0, 1024, 600, 9000)) >> 1;  //hardcoded, timer1 prescaling sensitive
+  noInterrupts();
+  desired_rpm = _desired_rpm; 
+  int _commutation_period = commutation_period;
+  interrupts();
+
+  int delta = desired_rpm - rpm(_commutation_period);
+#else
+  unsigned int desired_commutation_period = map(input, 0, 1024, 60000, 600);  //hardcoded, timer1 prescaling sensitive
   noInterrupts();
   int _commutation_period = commutation_period;
   interrupts();
-  _commutation_period /= 6.0;
-  
-#ifdef CONTROL_RPM
-  int desired_rpm = map(input, 0, 1024, 600, 10000);  //hardcoded, timer1 prescaling sensitive
-  int delta = desired_rpm - rpm();
-#else
-  int desired_commutation_period = map(input, 0, 1024, 10000, 100);  //hardcoded, timer1 prescaling sensitive
+
   int delta = _commutation_period - desired_commutation_period;
 //  Serial.print("input: "); Serial.print(input);
 //  Serial.print( "desire_commutation_period: ") ; Serial.print(desired_commutation_period);
@@ -375,21 +371,21 @@ unsigned int Motor::speed_control() {
 #endif
 
   // adjust power level accordingly  //hardcoded
-  if (delta > 0) {
+  if (delta > 25) { 
     pwm_set_level(pwm_level + 1);
-  } else if (delta < 0) {
+  } else if (delta < -25) {
     byte _pwm_level  pwm_level;
     if (_pwm_level) {
       pwm_set_level(pwm_level - 1);
     }
   }
   
-  int _phase_shift = auto_phase_shift ? - (_commutation_period * 0.25) : motor.phase_shift;
+  int _phase_shift = auto_phase_shift ? - (_commutation_period * 0.25 / 6.0) : motor.phase_shift;
   noInterrupts();
   phase_shift = _phase_shift;
   interrupts();
   
-  return _commutation_period * MICROSECONDS_PER_TICK;
+  return (unsigned int)(_commutation_period * MICROSECONDS_PER_TICK);
 }
 
 unsigned int Motor::rpm() {
@@ -398,7 +394,7 @@ unsigned int Motor::rpm() {
     noInterrupts();
     unsigned int __commutation_period = commutation_period;
     interrupts();
-    return (unsigned int)(60 * 1000000.0 / (__commutation_period) / (MICROSECONDS_PER_TICK * poles));
+    return rpm(__commutation_period);
   } else {
     return 0;
   }

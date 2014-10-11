@@ -17,7 +17,7 @@
 
 // Increase the size of the serial buffer to avoid blocking in the serial
 // monitor.
-#define SERIAL_BUFFER_SIZE 256
+//#define SERIAL_BUFFER_SIZE 256
 
 #ifndef bldc_controller_h
 #define bldc_controller_h
@@ -30,7 +30,7 @@
 //#define COMPLEMENTARY_SWITCHING
 
 // Control the RPM rather than the commutation period. rpm tends surge.
-//#define CONTROL_RPM
+#define CONTROL_RPM
 
 #ifndef sbi
   #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))

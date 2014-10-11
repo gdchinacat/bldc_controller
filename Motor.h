@@ -28,6 +28,14 @@
 
 #define SPEED_PIN A5
 
+// The lowest prescale that works is 8x, anything lower
+// and commutation_period overflows.
+#define PRESCALE 8
+#define PRESCALE_BITS _BV(CS11)
+#define TICKS_PER_MICROSECOND (16 / PRESCALE)
+#define MICROSECONDS_PER_TICK (1.0 / TICKS_PER_MICROSECOND)
+
+
 // lots of hard coded timer stuff here....
 #define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));
 #define enable_timer1_compb();  (TIMSK1 |= _BV(OCIE1B));
@@ -38,12 +46,16 @@ class Motor {
     Motor(int poles, int speed_pin);
     void start();
     unsigned int rpm();
+    unsigned int rpm(unsigned int __commutation_period) { 
+        return (unsigned int)(60 * 1000000.0 / (__commutation_period) / (MICROSECONDS_PER_TICK * poles)); 
+    }
 
     void next_commutation(); // advance to the next commutation
     void pwm_on();  // called when pwm should be on 
     void pwm_off(); // called when pwm should be off
     unsigned int speed_control();
     void zero_crossing_interrupt();  // called from global
+    int desired_rpm;
     
   //private:
     int poles;       // number of pole pairs
@@ -56,7 +68,7 @@ class Motor {
     unsigned int last_even;
     unsigned int last_odd;
     unsigned int last_commutation; // for commutation to zero crossing timing
-
+    
     // commutation
     int interrupt_count;              // # of interrupts since last reset()
     int phase_shift;                  // # of ticks to shift commutation by

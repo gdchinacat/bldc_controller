@@ -44,13 +44,13 @@ void pwm_initialize(byte pwm_mask) {
 #endif
 }
 
-void pwm_start() {
+void __inline__ pwm_start() {
   TCNT2 = 0xFF;
   enable_timer2_interrupts();
   pwm_set_level(pwm_level); // reset the power level
 }
 
-void pwm_stop() {
+void __inline__ pwm_stop() {
   disable_timer2_interrupts();
 }
 

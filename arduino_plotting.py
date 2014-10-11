@@ -2,7 +2,17 @@ import serial
 import contextlib
 import numpy
 import pylab
+import itertools
+import functools
+import traceback
 
+HEADER = b"-=-=-=-=\r\n"
+FIELD_DELIMITER = ','
+FIELD_DEF_DELIMITER = ':'
+DATAPOINTS = 6000  # number of datapoints on graph
+BATCHSIZE = 100  # increase to reduce graph updates and reduce cpu load
+
+pylab.interactive(True)
 
 @contextlib.contextmanager
 def uno_serial(device='/dev/ttyACM0', baud=4000000):
@@ -12,138 +22,171 @@ def uno_serial(device='/dev/ttyACM0', baud=4000000):
     finally:
         ser.close()
 
-def stats(nfields, count=None, delimiter=','):
-    """this does some error filtering since the stream isn't always perfect"""
-    with uno_serial() as uno:
+colors = iter('rgbcmyk')
+
+class Field(object):
+
+    line = None
+    last_value = 0
+
+    def __init__(self, field_def, parent):
+        name, size, _type = field_def.split(FIELD_DEF_DELIMITER)
+        self.name = name
+        self.size = int(size)
+        self._type = _type
+        self.parent = parent
+        self.create_series()
+        self.overflow_count = 0
+
+    @property
+    def max_value(self):
+        return ((1 << (8 * self.size)) - 1)
+
+    def create_series(self):
+        if not self.line:
+            axes, loc = self.parent.axes_loc(self.name)
+            if axes:
+                series = numpy.array([0] * DATAPOINTS)
+                self.line, = axes.plot(self.x, series, next(colors) + ".", label=self.name)
+                if loc:
+                    axes.legend(loc=loc)
+        else:
+            series = numpy.array([0] * DATAPOINTS)
+            self.line.set_ydata(series)
+            self.line.set_xdata(self.x)
+
+    @property
+    def x(self):
+        return self.parent.x
+
+    @property
+    def uno(self):
+        return self.parent.uno
+
+    def read(self):
+        b = self.uno.read(self.size)
+        value = functools.reduce(lambda v, b: (v<<8) + b, b, 0)
+        last_value = self.last_value
+        self.last_value = value
+
+        if self._type == "count":
+            if value < last_value:
+                value += self.max_value - last_value
+            else:
+                value -= last_value
+
+        if self._type == "":
+            if value < last_value:
+                self.overflow_count += 1
+            value += self.overflow_count * self.max_value 
+
+        return value
+            
+
+class Fields(object):
+
+    fields = None
+
+    def __init__(self):
+        self.figure = pylab.figure(figsize=(25,10))
+
+        self.left_axes = self.figure.add_subplot(111)
+        self.left_axes.set_xlabel("time (s)")
+        self.left_axes.grid("on")
+
+        self.right_axes = self.left_axes.twinx()
+        pylab.draw()
+
+    def axes_loc(self, field_name):
+        """the (axes, legend_location) for the field name, (None, None) to not plot"""
+        axes, loc = None, None
+        if field_name in ('pwm_level', 'interrupts'):
+            axes = self.right_axes
+            loc = 'upper right'
+        elif field_name in ('rpm', 'period', 'desired rpm'):
+            axes = self.left_axes
+            loc = 'upper left'
+        return axes, loc
+
+    def create_series(self):
+        """create or recreate the field and series"""
+        self.x = numpy.array([0] * DATAPOINTS)
+        if not self.fields:
+            self.fields = []
+            for field_def in self.field_defs:
+                self.fields.append(Field(field_def, self))
+        else:
+            for field in self.fields:
+                field.create_series()
+
+    def stats(self, count=None):
         while count or count is None:
-            line = uno.readline()
-            try:
-                line = line.decode('utf-8')
-            except:
-                continue
-            line = line.strip()
-            if line and line[-1] == delimiter:
-                line = line[:-1]
-            parts = line.split(delimiter)
-            if len(parts) == (nfields or len(parts)):
-                if all(part and (part[0] == '-' or str.isdigit(part)) for part in parts):
-                    ret = None
-                    try:
-                        ret = [int(part) for part in parts]
-                    except ValueError:
-                        pass
-                    if ret:
-                        yield ret
-                    
+            fields = [field.read() for field in self.fields]
+            # todo - some sort of error check (crc)
+            yield fields
             if count: count -= 1
 
-def collect(batchsize):
-    _stats = stats(4)
-    overflow_count = 0
-    while (True):
-        millis = []; rpm = []; power_level=[]; interrupt_count=[]
-        __interrupt_count = None # used for calculating the delta
-        for _ in range(batchsize):
-            _millis, _rpm, _power_level, _interrupt_count = _stats.__next__()
-            _millis += 0xffff * overflow_count
+    def collect(self, batchsize):
+        _stats = self.stats()
+        overflow_count = 0
+        while (True):
+            fields = [[] for _ in self.fields]
+            while(len(fields[0]) < batchsize):
+                for _fields, value in zip(fields, next(_stats)):
+                    _fields.append(value)
+                #print([field[-1] for field in fields])
+            ret = [numpy.array(field) for field in fields]
+            yield ret
+    
+    
+    def run(self):
+        with uno_serial() as uno:
+            self.uno = uno
 
-            if millis and _millis < last_millis:
-                # hard to tell. Was it really an overflow, or a reset? 
-                if (0xffff - 20) < last_millis - _millis < (0xffff + 20):  # hardcoded
-                    overflow_count += 1
-                    _millis += 0xffff
-                else:
-                    # doesn't look like an overflow, reset it
-                    millis = []; rpm = []; power_level=[]; interrupt_count=[]
-                    _millis -= 0xffff * overflow_count # yuck...
-                    overflow_count = 0
+            while self.fields is None:
+                while True:
+                    line = None
+                    try:
+                        line = uno.readline()
+                    except:
+                        pass
+                    if line.endswith(HEADER):
+                        break
+                line = uno.readline()
+                try:
+                    line = line.decode('utf-8').strip()
+                    _fields = line.split(FIELD_DELIMITER)
+                    self.field_defs = _fields
+                    self.create_series()
+                except:
+                    self.fields = None
 
-                __interrupt_count = None
-            if __interrupt_count is not None:
-                if _interrupt_count > __interrupt_count:
-                    tmp = _interrupt_count
-                    _interrupt_count = _interrupt_count - __interrupt_count # make this relative to the previous data point, ie gauge
-                    __interrupt_count = tmp
-                elif _interrupt_count < __interrupt_count: # rollover
-                  tmp = _interrupt_count
-                  _interrupt_count = _interrupt_count + (0xffff - __interrupt_count)
-                  __interrupt_count = tmp
-            else:
-                __interrupt_count = _interrupt_count
-                _interrupt_count = 0
+            for value_arrays in self.collect(BATCHSIZE):
+                _millis = value_arrays[0] / 1000
+                value_arrays = value_arrays[1:]
 
-            last_millis = _millis
-            millis.append(_millis); rpm.append(_rpm); power_level.append(_power_level); interrupt_count.append(_interrupt_count)
+                #print(numpy.diff(_millis).mean())
 
-        ret = numpy.array(millis), numpy.array(rpm), numpy.array(power_level), numpy.array(interrupt_count)
-        yield ret
+                #print(_millis[0], [_millis[x] - _millis[x - 1] for x in range(len(_millis))]) 
+                if _millis[0] < self.x[-1]:
+                    self.create_series()
 
-DATAPOINTS = 2000  # number of datapoints on graph
-BATCHSIZE = 50  # increase to reduce graph updates and reduce cpu load
+                self.x = numpy.array(self.x[len(_millis):].tolist() + _millis.tolist())
+                for (field, values) in zip(self.fields[1:], value_arrays):
+                    if not field.line: continue
+                    line = field.line
+                    line.set_ydata(numpy.array(line.get_ydata()[len(values):].tolist() + values.tolist()))  # my hunch is tolist is expensive...
+                    line.set_xdata(self.x)
 
-millis = numpy.array([0] * DATAPOINTS)
-rpm = numpy.array([0] * DATAPOINTS)
-#phase_shift = numpy.array([0] * DATAPOINTS)
-#even_odd = numpy.array([0] * DATAPOINTS)
-power_level = numpy.array([0] * DATAPOINTS)
-interrupt_count = numpy.array([0] * DATAPOINTS)
-x = numpy.array([0] * DATAPOINTS)
+                    _min = min([_line.get_ydata().min() for _line in line.axes.lines])
+                    _max = max([_line.get_ydata().max() for _line in line.axes.lines])
+                    line.axes.axis((self.x.min(), self.x.max(), _min * 0.95, _max * 1.05))
+                pylab.draw()
 
-pylab.interactive(True)
-figure = pylab.figure(figsize=(25,10))
-left_axes = figure.add_subplot(111)
-left_axes.set_xlabel("time (s)")
-left_axes.grid("on")
+try:
+  Fields().run()
+finally:
+  traceback.print_exc()
+  pylab.show(block=True)
 
-right_axes = left_axes.twinx()
-
-rpm_line, = left_axes.plot(x, rpm, "r.", label='rpm')
-power_level_line, = right_axes.plot(x, power_level, "g.", label='power level')
-interrupt_count_line, = right_axes.plot(x, interrupt_count, "b.", label='interrupt count')
-left_axes.legend(loc="upper left")
-right_axes.legend(loc="upper right")
-pylab.draw()
-
-for (_millis, _rpm, _power_level, _interrupt_count) in collect(BATCHSIZE):
-    print(_millis[0], [_millis[x] - _millis[x - 1] for x in range(len(_millis))]) 
-    _millis = _millis / 1000
-    if _millis[0] < x[-1]:
-        # time reset, reset the series
-        millis = numpy.array([0] * DATAPOINTS)
-        #phase_shift = numpy.array([0] * DATAPOINTS)
-        #even_odd = numpy.array([0] * DATAPOINTS)
-        power_level = numpy.array([0] * DATAPOINTS)
-        interrupt_count = numpy.array([0] * DATAPOINTS)
-        x = numpy.array([0] * DATAPOINTS)
-
-    x = numpy.array(x[len(_millis):].tolist() + _millis.tolist())
-
-    rpm = numpy.array(rpm[len(_rpm):].tolist() + _rpm.tolist())
-    rpm_line.set_ydata(rpm); rpm_line.set_xdata(x)
-    #_avg, _std = numpy.average(rpm), numpy.std(rpm)
-    #print('rpm avg: ', _avg, ' std: ', _std, ' pct: ', (_std / _avg) * 100);
-
-    #even_odd = numpy.array(even_odd[len(_even_odd):].tolist() + _even_odd.tolist())
-    #even_odd_line.set_ydata(even_odd); even_odd_line.set_xdata(x)
-
-    power_level = numpy.array(power_level[len(_power_level):].tolist() + _power_level.tolist())
-    power_level_line.set_ydata(power_level); power_level_line.set_xdata(x)
-    #_avg, _std = numpy.average(power_level), numpy.std(power_level)
-    #print('power_level avg: ', _avg, ' std: ', _std, ' pct: ', (_std / _avg) * 100);
-
-    _interrupt_count[0] = _interrupt_count[0] - interrupt_count[-1] # gauge, relative to previous
-    interrupt_count = numpy.array(interrupt_count[len(_interrupt_count):].tolist() + _interrupt_count.tolist())
-    interrupt_count_line.set_ydata(interrupt_count); interrupt_count_line.set_xdata(x)
-  
-
-    _max = rpm.max()
-    _min = rpm.min()
-
-    left_axes.axis((x.min(), x.max(), _min * 0.85, _max * 1.15))
-
-    # todo - change this to a gauge
-    _max = max(power_level.max(), interrupt_count.max())
-    right_axes.axis((x.min(), x.max(), 0, _max * 1.15))
-
-    pylab.draw()
 
