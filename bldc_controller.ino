@@ -37,8 +37,10 @@ void setup() {
   Serial.begin(4000000);
   //Serial.setTimeout(5);
   Serial.print(HEADER); Serial.println();
+  Serial.print(HEADER); Serial.println();
+  Serial.print(HEADER); Serial.println();
   //Serial.print("millis:2:,rpm:2:gauge,pwm_level:1:gauge,interrupts:2:count,commutation period:2:gauge"); Serial.println();
-  Serial.print("millis:2:,rpm:2:gauge,pwm_level:1:gauge,interrupts:2:count,desired rpm:2:gauge"); Serial.println();
+  Serial.print("millis:>H:time,rpm:>H:gauge,pwm_level:B:gauge,accel:>h:gauge,desired rpm:>H:gauge"); Serial.println();
 
   OCR0A = 0;  //hardcode
   enable_timer0_compa();
@@ -60,6 +62,7 @@ void serial_monitor() {
       unsigned int desired_rpm = motor.desired_rpm;
       byte _pwm_level = pwm_level;
       unsigned int _millis = millis();
+      int accel = motor.accel_sum;
       interrupts();
       
       unsigned int rpm = motor.rpm(period);
@@ -72,7 +75,8 @@ void serial_monitor() {
       _write_int(_millis)
       _write_int(rpm);
       _write_byte(_pwm_level);
-      _write_int(interrupt_count);
+      //_write_int(interrupt_count);
+      _write_int(accel);
       _write_int(desired_rpm);
       //_write_int(period)
       Serial.write(serial_monitor_buffer, serial_monitor_buffer_idx);
@@ -89,7 +93,8 @@ ISR(TIMER0_COMPA_vect) {
 }
 
 void loop() {
-  
+
+// PWM test code  
 //  #define ON (_BV(1))
 //  #define OFF (_BV(1))
 //
@@ -106,7 +111,7 @@ void loop() {
   //int dir = -1;
   unsigned int _delay;
   
-  motor.auto_phase_shift = true;
+  //motor.auto_phase_shift = true;
   do {
     _delay = motor.speed_control();
 

@@ -182,6 +182,19 @@ void Motor::reset() {
 
   pwm_initialize(0);
   
+  desired_rpms_sum = 0;
+  desired_rpms_idx = 0;
+  for (int x = 0; x < 16; x++) {
+    desired_rpms[x] = 0;
+  }
+  
+  last_accel = 0;
+  accel_idx = 0;
+  accel_sum = 0;
+  for (int x = 0; x < 32; x++) {
+    accel[x] = 0;
+  }
+  
   interrupts();
 }
 
@@ -251,9 +264,17 @@ void Motor::zero_crossing_interrupt() {
     if (commutation == 0) {
       commutation_period = commutation_period_accumulator;
       commutation_period_accumulator = 0;
+
+      accel_sum -= accel[accel_idx];
+      int diff = commutation_period - last_accel;
+      accel[accel_idx] = diff;
+      accel_sum += diff;
+      accel_idx = (accel_idx + 1) & 0b11111;
+      last_accel = commutation_period;
     }
+    
     if (commutation & 1) {
-      last_odd = tcnt1 - last_commutation;
+last_odd = tcnt1 - last_commutation;
     } else {
       last_even = tcnt1 - last_commutation;
     }
@@ -351,13 +372,18 @@ unsigned int Motor::speed_control() {
   int input = analogRead(speed_pin);
 
 #ifdef CONTROL_RPM
-  int _desired_rpm = (desired_rpm + map(input, 0, 1024, 600, 9000)) >> 1;  //hardcoded, timer1 prescaling sensitive
+  desired_rpms_sum -= desired_rpms[desired_rpms_idx];
+  desired_rpms[desired_rpms_idx] = input;
+  desired_rpms_sum += input;
+  desired_rpms_idx = (desired_rpms_idx + 1) & 0b1111;
+  int _desired_rpm = map(desired_rpms_sum, 0, 1024 * 16, 600, 9000); //hardcoded, timer1 prescaling sensitive
   noInterrupts();
   desired_rpm = _desired_rpm; 
   int _commutation_period = commutation_period;
   interrupts();
 
   int delta = desired_rpm - rpm(_commutation_period);
+  
 #else
   unsigned int desired_commutation_period = map(input, 0, 1024, 60000, 600);  //hardcoded, timer1 prescaling sensitive
   noInterrupts();
@@ -371,9 +397,9 @@ unsigned int Motor::speed_control() {
 #endif
 
   // adjust power level accordingly  //hardcoded
-  if (delta > 25) { 
+  if (delta > 0) { 
     pwm_set_level(pwm_level + 1);
-  } else if (delta < -25) {
+  } else if (delta < -0) {
     byte _pwm_level  pwm_level;
     if (_pwm_level) {
       pwm_set_level(pwm_level - 1);

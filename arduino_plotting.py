@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import serial
 import contextlib
 import numpy
@@ -5,12 +6,13 @@ import pylab
 import itertools
 import functools
 import traceback
+import struct
 
 HEADER = b"-=-=-=-=\r\n"
 FIELD_DELIMITER = ','
 FIELD_DEF_DELIMITER = ':'
-DATAPOINTS = 6000  # number of datapoints on graph
-BATCHSIZE = 100  # increase to reduce graph updates and reduce cpu load
+DATAPOINTS = 2000  # number of datapoints on graph
+BATCHSIZE = 30  # increase to reduce graph updates and reduce cpu load
 
 pylab.interactive(True)
 
@@ -30,9 +32,10 @@ class Field(object):
     last_value = 0
 
     def __init__(self, field_def, parent):
-        name, size, _type = field_def.split(FIELD_DEF_DELIMITER)
+        name, fmt, _type = field_def.split(FIELD_DEF_DELIMITER)
         self.name = name
-        self.size = int(size)
+        self.fmt = fmt
+        self.size = struct.calcsize(fmt)
         self._type = _type
         self.parent = parent
         self.create_series()
@@ -40,6 +43,7 @@ class Field(object):
 
     @property
     def max_value(self):
+        # does not take signed into account, because rollover doesn't make sense
         return ((1 << (8 * self.size)) - 1)
 
     def create_series(self):
@@ -47,7 +51,7 @@ class Field(object):
             axes, loc = self.parent.axes_loc(self.name)
             if axes:
                 series = numpy.array([0] * DATAPOINTS)
-                self.line, = axes.plot(self.x, series, next(colors) + ".", label=self.name)
+                self.line, = axes.plot(self.x, series, next(colors) + "", label=self.name)
                 if loc:
                     axes.legend(loc=loc)
         else:
@@ -65,17 +69,19 @@ class Field(object):
 
     def read(self):
         b = self.uno.read(self.size)
-        value = functools.reduce(lambda v, b: (v<<8) + b, b, 0)
+        value, = struct.unpack(self.fmt, b)
         last_value = self.last_value
         self.last_value = value
 
         if self._type == "count":
+            # convert to delta since last
             if value < last_value:
+                # overflow: 
                 value += self.max_value - last_value
             else:
                 value -= last_value
 
-        if self._type == "":
+        if self._type == "time":
             if value < last_value:
                 self.overflow_count += 1
             value += self.overflow_count * self.max_value 
@@ -100,7 +106,7 @@ class Fields(object):
     def axes_loc(self, field_name):
         """the (axes, legend_location) for the field name, (None, None) to not plot"""
         axes, loc = None, None
-        if field_name in ('pwm_level', 'interrupts'):
+        if field_name in ('pwm_level', 'interrupts', 'accel'):
             axes = self.right_axes
             loc = 'upper right'
         elif field_name in ('rpm', 'period', 'desired rpm'):
@@ -144,8 +150,9 @@ class Fields(object):
             self.uno = uno
 
             while self.fields is None:
-                while True:
-                    line = None
+                
+                line = None
+                while not line or line == HEADER:
                     try:
                         line = uno.readline()
                     except:
@@ -171,11 +178,11 @@ class Fields(object):
                 if _millis[0] < self.x[-1]:
                     self.create_series()
 
-                self.x = numpy.array(self.x[len(_millis):].tolist() + _millis.tolist())
+                self.x = numpy.append(self.x[len(_millis):], _millis)
                 for (field, values) in zip(self.fields[1:], value_arrays):
                     if not field.line: continue
                     line = field.line
-                    line.set_ydata(numpy.array(line.get_ydata()[len(values):].tolist() + values.tolist()))  # my hunch is tolist is expensive...
+                    line.set_ydata(numpy.append(line.get_ydata()[len(values):], values))
                     line.set_xdata(self.x)
 
                     _min = min([_line.get_ydata().min() for _line in line.axes.lines])
