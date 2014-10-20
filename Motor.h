@@ -85,14 +85,6 @@ class Motor {
     byte desired_rpms_idx;
     unsigned int desired_rpms_sum;
  
-    // acceleration
-    int accel[32];
-    byte accel_idx;
-    int accel_sum;
-    unsigned int last_accel;
-    
-    
-    
 };
 
 #endif

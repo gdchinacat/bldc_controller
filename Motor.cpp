@@ -188,13 +188,6 @@ void Motor::reset() {
     desired_rpms[x] = 0;
   }
   
-  last_accel = 0;
-  accel_idx = 0;
-  accel_sum = 0;
-  for (int x = 0; x < 32; x++) {
-    accel[x] = 0;
-  }
-  
   interrupts();
 }
 
@@ -264,17 +257,10 @@ void Motor::zero_crossing_interrupt() {
     if (commutation == 0) {
       commutation_period = commutation_period_accumulator;
       commutation_period_accumulator = 0;
-
-      accel_sum -= accel[accel_idx];
-      int diff = commutation_period - last_accel;
-      accel[accel_idx] = diff;
-      accel_sum += diff;
-      accel_idx = (accel_idx + 1) & 0b11111;
-      last_accel = commutation_period;
     }
     
     if (commutation & 1) {
-last_odd = tcnt1 - last_commutation;
+      last_odd = tcnt1 - last_commutation;
     } else {
       last_even = tcnt1 - last_commutation;
     }
@@ -363,10 +349,10 @@ unsigned int Motor::speed_control() {
   if (!sensing) {
     return 0;
   }
-
-//  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
-//  delay(150);
-//  return 0;
+  
+  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
+  delay(150);
+  return 0;
   
   // how fast should we go
   int input = analogRead(speed_pin);
@@ -405,7 +391,7 @@ unsigned int Motor::speed_control() {
       pwm_set_level(pwm_level - 1);
     }
   }
-  
+
   int _phase_shift = auto_phase_shift ? - (_commutation_period * 0.25 / 6.0) : motor.phase_shift;
   noInterrupts();
   phase_shift = _phase_shift;

@@ -39,9 +39,16 @@ void setup() {
   Serial.print(HEADER); Serial.println();
   Serial.print(HEADER); Serial.println();
   Serial.print(HEADER); Serial.println();
-  //Serial.print("millis:2:,rpm:2:gauge,pwm_level:1:gauge,interrupts:2:count,commutation period:2:gauge"); Serial.println();
-  Serial.print("millis:>H:time,rpm:>H:gauge,pwm_level:B:gauge,accel:>h:gauge,desired rpm:>H:gauge"); Serial.println();
-
+  Serial.print("millis:>H:time");
+  Serial.print(",rpm:>H:gauge");
+//  Serial.print(",pwm_level:B:gauge");
+//  Serial.print(",interrupt count:>H:count");
+//  Serial.print(",desired rpm:>H:gauge");
+//  Serial.print(",even-odd:>h:gauge");
+  Serial.print(",even:>H:gauge");
+  Serial.print(",odd:>H:gauge");
+  Serial.print(",period:>H:gauge");
+  Serial.println();
   OCR0A = 0;  //hardcode
   enable_timer0_compa();
 
@@ -55,14 +62,13 @@ void setup() {
 
 void serial_monitor() {
       unsigned int period = motor.commutation_period;
-//      unsigned int last_even = motor.last_even;
-//      unsigned int last_odd = motor.last_odd;
+      unsigned int last_even = motor.last_even;
+      unsigned int last_odd = motor.last_odd;
 //      int phase_shift = motor.phase_shift;
-      unsigned int interrupt_count = motor.interrupt_count;
-      unsigned int desired_rpm = motor.desired_rpm;
-      byte _pwm_level = pwm_level;
+//      unsigned int interrupt_count = motor.interrupt_count;
+//      unsigned int desired_rpm = motor.desired_rpm;
+//      byte _pwm_level = pwm_level;
       unsigned int _millis = millis();
-      int accel = motor.accel_sum;
       interrupts();
       
       unsigned int rpm = motor.rpm(period);
@@ -74,11 +80,13 @@ void serial_monitor() {
       serial_monitor_buffer_idx = 0;
       _write_int(_millis)
       _write_int(rpm);
-      _write_byte(_pwm_level);
-      //_write_int(interrupt_count);
-      _write_int(accel);
-      _write_int(desired_rpm);
-      //_write_int(period)
+//      _write_byte(_pwm_level);
+//      _write_int(interrupt_count);
+//      _write_int(desired_rpm);
+//      _write_int((int)last_even-last_odd);
+      _write_int(last_even);
+      _write_int(last_odd);
+      _write_int(period);
       Serial.write(serial_monitor_buffer, serial_monitor_buffer_idx);
 }
 
