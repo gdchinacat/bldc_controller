@@ -182,10 +182,10 @@ void Motor::reset() {
 
   pwm_initialize(0);
   
-  desired_rpms_sum = 0;
-  desired_rpms_idx = 0;
+  inputs_sum = 0;
+  inputs_idx = 0;
   for (int x = 0; x < 16; x++) {
-    desired_rpms[x] = 0;
+    inputs[x] = 0;
   }
   
   interrupts();
@@ -244,11 +244,13 @@ void Motor::zero_crossing_interrupt() {
   if (sensing) {
 
     unsigned int tcnt1 = TCNT1;
-    disable_zero_crossing_detection();
     
     //reset the counter and set the overflow timer for 1/2 the measured time since we're 1/2 way through the phase 
     TCNT1 = 0; // todo don't reset tcnt since it can't be shared between motors - support tick counts greater than 16 bit using overflow
-    OCR1B = (tcnt1 >> 1) + phase_shift;  //hardcoded
+
+    disable_zero_crossing_detection();
+    
+    OCR1B = (tcnt1 >> 1) + phase_shift;  //hardcoded. average even odd
     enable_timer1_compb(); // next_commutation
 
     // this is only needed for commutation based rpm monitoring, there
@@ -350,28 +352,29 @@ unsigned int Motor::speed_control() {
     return 0;
   }
   
-  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
-  delay(150);
-  return 0;
+//  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
+//  delay(150);
+//  return 0;
   
   // how fast should we go
   int input = analogRead(speed_pin);
+  inputs_sum -= inputs[inputs_idx];
+  inputs[inputs_idx] = input;
+  inputs_sum += input;
+  inputs_idx = (inputs_idx + 1) & 0b1111;
 
 #ifdef CONTROL_RPM
-  desired_rpms_sum -= desired_rpms[desired_rpms_idx];
-  desired_rpms[desired_rpms_idx] = input;
-  desired_rpms_sum += input;
-  desired_rpms_idx = (desired_rpms_idx + 1) & 0b1111;
-  int _desired_rpm = map(desired_rpms_sum, 0, 1024 * 16, 600, 9000); //hardcoded, timer1 prescaling sensitive
+  int _desired_rpm = map(inputs_sum, 0, 1024 * 16, 600, 9000); //hardcoded, timer1 prescaling sensitive  
+//  int _desired_rpm = map(input, 0, 1024, 600, 9000); //hardcoded, timer1 prescaling sensitive  
   noInterrupts();
   desired_rpm = _desired_rpm; 
   int _commutation_period = commutation_period;
   interrupts();
-
+  
   int delta = desired_rpm - rpm(_commutation_period);
   
 #else
-  unsigned int desired_commutation_period = map(input, 0, 1024, 60000, 600);  //hardcoded, timer1 prescaling sensitive
+  unsigned int desired_commutation_period = map(inputs_sum, 0, 1024 * 16, 60000, 600);  //hardcoded, timer1 prescaling sensitive
   noInterrupts();
   int _commutation_period = commutation_period;
   interrupts();

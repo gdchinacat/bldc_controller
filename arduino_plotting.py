@@ -11,7 +11,7 @@ import struct
 HEADER = b"-=-=-=-=\r\n"
 FIELD_DELIMITER = ','
 FIELD_DEF_DELIMITER = ':'
-DATAPOINTS = 2000  # number of datapoints on graph
+DATAPOINTS = 3000  # number of datapoints on graph
 BATCHSIZE = 50  # increase to reduce graph updates and reduce cpu load
 
 pylab.interactive(True)
@@ -106,10 +106,10 @@ class Fields(object):
     def axes_loc(self, field_name):
         """the (axes, legend_location) for the field name, (None, None) to not plot"""
         axes, loc = None, None
-        if field_name in ('pwm_level', 'interrupt count', 'accel', 'even-odd', 'even', 'odd',):
+        if field_name in ('pwm_level', 'interrupt count', 'accel', 'even-odd', 'even', 'odd'):
             axes = self.right_axes
             loc = 'upper right'
-        elif field_name in ('_rpm', 'desired rpm', 'period'):
+        elif field_name in ('rpm', 'desired rpm', 'period', 'phase shift'):
             axes = self.left_axes
             loc = 'upper left'
         return axes, loc
@@ -155,10 +155,10 @@ class Fields(object):
                 while not line or line == HEADER:
                     try:
                         line = uno.readline()
+                        if line.endswith(HEADER):
+                            break
                     except:
                         pass
-                    if line.endswith(HEADER):
-                        break
                 line = uno.readline()
                 try:
                     line = line.decode('utf-8').strip()

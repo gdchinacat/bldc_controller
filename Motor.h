@@ -80,10 +80,10 @@ class Motor {
     void reset();
     void initialize_timers();
 
-    // desired rpm running average
-    unsigned int desired_rpms[16];
-    byte desired_rpms_idx;
-    unsigned int desired_rpms_sum;
+    // control input smoothing
+    unsigned int inputs[16];
+    byte inputs_idx;
+    unsigned int inputs_sum;
  
 };
 

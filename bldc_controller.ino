@@ -43,11 +43,12 @@ void setup() {
   Serial.print(",rpm:>H:gauge");
 //  Serial.print(",pwm_level:B:gauge");
 //  Serial.print(",interrupt count:>H:count");
-//  Serial.print(",desired rpm:>H:gauge");
+  Serial.print(",desired rpm:>H:gauge");
 //  Serial.print(",even-odd:>h:gauge");
   Serial.print(",even:>H:gauge");
   Serial.print(",odd:>H:gauge");
-  Serial.print(",period:>H:gauge");
+//  Serial.print(",period:>H:gauge");
+  Serial.print(",phase shift:>h:gauge");
   Serial.println();
   OCR0A = 0;  //hardcode
   enable_timer0_compa();
@@ -64,9 +65,9 @@ void serial_monitor() {
       unsigned int period = motor.commutation_period;
       unsigned int last_even = motor.last_even;
       unsigned int last_odd = motor.last_odd;
-//      int phase_shift = motor.phase_shift;
+      int phase_shift = motor.phase_shift;
 //      unsigned int interrupt_count = motor.interrupt_count;
-//      unsigned int desired_rpm = motor.desired_rpm;
+      unsigned int desired_rpm = motor.desired_rpm;
 //      byte _pwm_level = pwm_level;
       unsigned int _millis = millis();
       interrupts();
@@ -82,11 +83,12 @@ void serial_monitor() {
       _write_int(rpm);
 //      _write_byte(_pwm_level);
 //      _write_int(interrupt_count);
-//      _write_int(desired_rpm);
+      _write_int(desired_rpm);
 //      _write_int((int)last_even-last_odd);
       _write_int(last_even);
       _write_int(last_odd);
-      _write_int(period);
+//      _write_int(period);
+      _write_int(phase_shift);
       Serial.write(serial_monitor_buffer, serial_monitor_buffer_idx);
 }
 
@@ -116,11 +118,20 @@ void loop() {
   motor.start();
 
   int mult = 0;
-  //int dir = -1;
+  int dir = -1;
   unsigned int _delay;
   
-  //motor.auto_phase_shift = true;
+  motor.auto_phase_shift = true;
   do {
+    
+    if (++mult == 100) {
+      motor.phase_shift += dir;
+      if (motor.phase_shift < -200
+          || motor.phase_shift > 200) {
+        dir *= -1;
+          }
+    }
+    
     _delay = motor.speed_control();
 
     if (_delay > 10000) {
