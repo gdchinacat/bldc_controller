@@ -23,7 +23,7 @@
 // What should the diagnostics pin be raised?
 //#define DIAG_ZC_INTERRUPT
 //#define DIAG_ZC
-#define DIAG_COMMUTATION_CYCLE
+//#define DIAG_COMMUTATION_CYCLE
 //#define DIAG_COMMUTATION_INTERRUPT
 
 #define SPEED_PIN A5
