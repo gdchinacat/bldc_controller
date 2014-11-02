@@ -143,7 +143,7 @@ class Samples(object):
                     b = self.uno.read(size)
                     values = struct.unpack(fmt, b)
                     #print("buffering sample:", values)
-                except ValueError:
+                except (ValueError, OSError):
                     raise
                 except:
                     print('bad sample:', b)
@@ -203,9 +203,9 @@ def _serial(device='/dev/ttyACM0', baud=4000000):
         ser.close()
         
 pylab.interactive(True)
-try:
-    with _serial() as uno:
-        samples = Samples(uno)
-        samples.animate()
-finally:
+
+with _serial() as uno:
+    samples = Samples(uno)
+    threading.Thread(target=samples.animate, daemon=True).start()
     pylab.show(block=True)
+    samples.uno = False  # stops the animate thread
