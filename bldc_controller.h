@@ -33,6 +33,9 @@
 // Control the RPM rather than the commutation period. rpm tends surge.
 #define CONTROL_RPM
 
+// Interval of the serial monitor in ms
+#define SERIAL_MONITOR_INTERVAL 1
+
 #ifndef sbi
   #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif
