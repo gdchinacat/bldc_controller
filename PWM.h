@@ -33,11 +33,11 @@
 #define PWM_LEVELS 64
 
 // Timer2 is used for generating the interrupts used for software based PWM.
-#define disable_timer2_overflow(); TIMSK2 &= ~_BV(TOIE2);
-#define enable_timer2_overflow();  TIMSK2 |= _BV(TOIE2);
+#define disable_timer2_overflow(); cbi(TIMSK2, TOIE2);
+#define enable_timer2_overflow();  sbi(TIMSK2, TOIE2);
 
-#define disable_timer2_compb();  TIMSK2 &= ~_BV(OCIE2B);
-#define enable_timer2_compb();   TIMSK2 |= _BV(OCIE2B);
+#define disable_timer2_compb();  cbi(TIMSK2, OCIE2B);
+#define enable_timer2_compb();   sbi(TIMSK2, OCIE2B);
 
 #define enable_timer2_interrupts();   {TIMSK2 = _BV(TOIE2) | _BV(OCIE2B);}
 #define disable_timer2_interrupts();  {TIMSK2 = 0;}
@@ -57,7 +57,23 @@ void pwm_set_mask(byte mask);
 void pwm_set_mask_off(byte mask_off);  // mask to apply during the off period
 #endif
 
-// the current pwm level
-#define pwm_level (OCR2B - (256 - PWM_LEVELS))
+// the pwm mask is what is toggled in the PWM_PORT. A register is reserved for it to
+// avoid loading it from main memory each interrupt (they happen fairly frequently,
+// so it adds up).
+register byte pwm_mask asm("r3");
+#define pwm_set_mask(mask); pwm_mask = mask;
+
+#ifdef COMPLEMENTARY_SWITCHING
+register byte pwm_mask_off asm("r4");
+#define pwm_set_mask_off(mask_off); pwm_mask_off = mask_off;
+#endif
+
+// In order to avoid branching there is a "bug" in that changing from
+// full on or full off does not take effect until pwm_start is called
+// since the interrupts aren't registered. I do not consider this to
+// be a use case worth introducing performance problems to handle.
+#define pwm_set_level(level); OCR2B = constrain(level, 0, PWM_LEVELS) + (255 - PWM_LEVELS);
+#define pwm_level (OCR2B - (255 - PWM_LEVELS))
+
 
 

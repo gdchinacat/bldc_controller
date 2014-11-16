@@ -19,13 +19,6 @@
 #include "bldc_controller.h"
 #include "PWM.h"
 
-// the pwm mask is what is toggled in the PWM_PORT. A register is reserved for it to
-// avoid loading it from main memory each interrupt (they happen fairly frequently,
-// so it adds up).
-register byte pwm_mask asm("r3");
-#ifdef COMPLEMENTARY_SWITCHING
-register byte pwm_mask_off asm("r4");
-#endif
 
 void pwm_initialize(byte pwm_mask) {
   // Timer 2 is used for PWM interrupt generation.
@@ -45,9 +38,17 @@ void pwm_initialize(byte pwm_mask) {
 }
 
 void __inline__ pwm_start() {
-  TCNT2 = 0xFF;
-  enable_timer2_interrupts();
-  pwm_set_level(pwm_level); // reset the power level
+  byte ocr2b = OCR2B;
+  if (255 == ocr2b) {
+	  enable_timer2_overflow();
+	  TCNT2 = 0xFF;
+  } else if ((255 - PWM_LEVELS) >= ocr2b) {
+	  enable_timer2_compb();
+	  TCNT2 = ocr2b;
+  } else {
+	  enable_timer2_interrupts();
+	  TCNT2 = 0xFF;
+  }
 }
 
 void __inline__ pwm_stop() {
@@ -55,6 +56,8 @@ void __inline__ pwm_stop() {
 }
 
 void __inline__ __pwm_off() {
+  // This not uses an extra register and mov, com relative to __pwm_on.
+  // I'm not worried.
   PWM_PORT &= ~pwm_mask;
 #ifdef COMPLEMENTARY_SWITCHING
   deadtime_delay();
@@ -65,7 +68,7 @@ void __inline__ __pwm_off() {
 void __inline__ __pwm_on() {
 #ifdef COMPLEMENTARY_SWITCHING
   PWM_PORT &= ~pwm_mask_off;
-  deadtime_delay(); 
+  deadtime_delay();
 #endif
   PWM_PORT |= pwm_mask;
 }
@@ -75,46 +78,7 @@ ISR(TIMER2_COMPB_vect) {
 }
 
 ISR(TIMER2_OVF_vect) {
-  TCNT2 = (256 - PWM_LEVELS);
+  TCNT2 = (255 - PWM_LEVELS);
   __pwm_on();
 }
-
-void pwm_set_mask(byte mask) {
-  pwm_mask = mask;
-}
-
-#ifdef COMPLEMENTARY_SWITCHING
-void pwm_set_mask_off(byte mask_off) {
-  pwm_mask_off = mask_off;
-}
-#endif
-
-void pwm_set_level(byte level) {
-  
-  level = constrain(level, 0, PWM_LEVELS - 1);
- 
-  noInterrupts();
-  if (level == 0) {
-    //this looks weird on the oscilloscope since we ignore the overflow
-    //we don't reset the counter to 256-PWM_LEVELS and the diagnostic 
-    //port and the generated pwm differ...the source appears to drop to
-    //a lower frequency at a higher power. This is just an artifact of 
-    //not reseting the counter on each overflow. You've been warned.
-    disable_timer2_overflow();  // disable interrupt that turns it on
-    __pwm_off();
-  } else if (timer2_compb_enabled()) {
-    enable_timer2_overflow();   // enable interrupt to turn it on
-  }
-  
-  if (level == PWM_LEVELS - 1) {
-    disable_timer2_compb();
-    __pwm_on();
-  } else if (timer2_overflow_enabled()) {
-    enable_timer2_compb();
-  }
-  OCR2B = level + (256 - PWM_LEVELS);
-  interrupts();
-}
-
-
 

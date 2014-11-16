@@ -23,7 +23,7 @@
 // What should the diagnostics pin be raised?
 //#define DIAG_ZC_INTERRUPT
 //#define DIAG_ZC
-//#define DIAG_COMMUTATION_CYCLE
+#define DIAG_COMMUTATION_CYCLE
 //#define DIAG_COMMUTATION_INTERRUPT
 
 #define SPEED_PIN A5
@@ -37,8 +37,8 @@
 
 
 // lots of hard coded timer stuff here....
-#define disable_timer1_compb();  (TIMSK1 &= ~_BV(OCIE1B));
-#define enable_timer1_compb();  (TIMSK1 |= _BV(OCIE1B));
+#define disable_timer1_compb();  cbi(TIMSK1, OCIE1B);
+#define enable_timer1_compb();  sbi(TIMSK1, OCIE1B);
 
 class Motor {
   

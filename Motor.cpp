@@ -75,7 +75,7 @@ const byte braking_commutation_bits[6] = {B | C_,
 #define anti_commutation(commutation) (commutation < 3 ? commutation_bits[commutation + 3] : commutation_bits[commutation - 3])
 
 #define ALL_COMMUTATION_BITS      (LOW_COMMUTATION_BITS | HIGH_COMMUTATION_BITS)
-#define  ALL_COMMUTATION_BITS_OFF (~ALL_COMMUTATION_BITS)
+#define NON_COMMUTATION_BITS      (~ALL_COMMUTATION_BITS)
 #define HIGH_COMMUTATION_BITS_OFF (~HIGH_COMMUTATION_BITS)
 
 // the pin change mask the zero crossing signals attached to
@@ -163,7 +163,7 @@ void Motor::reset() {
   pinMode(speed_pin, INPUT);
 
   MOTOR_DDR |= ALL_COMMUTATION_BITS; // configure commutation pins as output
-  MOTOR_PORT &= ALL_COMMUTATION_BITS_OFF;
+  MOTOR_PORT &= NON_COMMUTATION_BITS;
 
   zc_initialize();
 
@@ -287,8 +287,6 @@ void Motor::next_commutation() {
   // stop the pwm bit flipping
   pwm_stop();
 
-  register byte port = MOTOR_PORT;
-
 //////////////////////////////////////////////////////////////
 // advance the commutation
 //////////////////////////////////////////////////////////////
@@ -315,12 +313,15 @@ void Motor::next_commutation() {
 // apply new commutation
 //////////////////////////////////////////////////////////////
 
-  // Turn off everything that isn't in the new commutation 
-  MOTOR_PORT = port &= (ALL_COMMUTATION_BITS_OFF | _commutation);
-  deadtime_delay();
-  if (pwm_level) { //only turn on the new commutation if there is power
-    MOTOR_PORT = port |= _commutation;
+  register byte port = MOTOR_PORT;
+
+  // turn everything off except what's in the commutation if there is power
+  byte mask = NON_COMMUTATION_BITS;
+  if (pwm_level) {
+    mask |= _commutation;
   }
+  MOTOR_PORT = port &= mask;
+  deadtime_delay();
 
 //////////////////////////////////////////////////////////////
 // Set up PWM
@@ -355,20 +356,19 @@ unsigned int Motor::speed_control() {
     return 0;
   }
   
-//  pwm_set_level(map(analogRead(speed_pin), 0, 1024, 0, PWM_LEVELS));
-//  delay(150);
-//  return 0;
-  
   // how fast should we go
   int input = analogRead(speed_pin);
-  inputs_sum -= inputs[inputs_idx];
-  inputs[inputs_idx] = input;
+  inputs_sum -= inputs[inputs_idx]; // won't overflow with intial values of zero
   inputs_sum += input;
+  inputs[inputs_idx] = input;
   inputs_idx = (inputs_idx + 1) & 0b1111;
 
+  //pwm_set_level(PWM_LEVELS);// * 0.9);
+  //pwm_set_level(constrain(map(inputs_sum, 0, 1024 * 16, 0, PWM_LEVELS + 1), 0, PWM_LEVELS));
+  //return 1000;
+
 #ifdef CONTROL_RPM
-  int _desired_rpm = map(inputs_sum, 0, 1024 * 16, 600, 9000); //hardcoded, timer1 prescaling sensitive  
-//  int _desired_rpm = map(input, 0, 1024, 600, 9000); //hardcoded, timer1 prescaling sensitive  
+  int _desired_rpm = map(inputs_sum, 0, 1024 * 16, 600, 9500); //hardcoded, timer1 prescaling sensitive
   noInterrupts();
   desired_rpm = _desired_rpm; 
   int _commutation_period = commutation_period;
@@ -403,7 +403,7 @@ unsigned int Motor::speed_control() {
   phase_shift = _phase_shift;
   interrupts();
   
-  return (unsigned int)(_commutation_period * MICROSECONDS_PER_TICK);
+  return 0;//(unsigned int)(_commutation_period * MICROSECONDS_PER_TICK);
 }
 
 unsigned int Motor::rpm() {
